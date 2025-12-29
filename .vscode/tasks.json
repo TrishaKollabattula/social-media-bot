@@ -1,0 +1,83 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Test Image Generation - Quick",
+            "type": "shell",
+            "command": "python",
+            "args": ["simple_test_generator.py"],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new"
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Create Content Details JSON",
+            "type": "shell",
+            "command": "python",
+            "args": ["-c", "from simple_test_generator import create_test_content_details; create_test_content_details(); print('Content details created successfully')"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "Test Prompt Generation Only",
+            "type": "shell",  
+            "command": "python",
+            "args": ["-c", "from simple_test_generator import test_prompt_generation; test_prompt_generation()"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "new"
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "Check Environment Setup",
+            "type": "shell",
+            "command": "python",
+            "args": ["-c", "import os; from dotenv import load_dotenv; load_dotenv(); vars=['CHROME_PROFILE_PATH1', 'AWS_REGION', 'S3_BUCKET_NAME']; print('Environment Check:'); [print(f'{v}: {\"Set\" if os.getenv(v) else \"Missing\"}') for v in vars]"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Run Full Test Suite",
+            "type": "shell",
+            "command": "python",
+            "args": ["-c", "from simple_test_generator import run_full_test_suite; run_full_test_suite()"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        }
+    ]
+}

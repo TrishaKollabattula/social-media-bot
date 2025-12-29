@@ -17,6 +17,49 @@
         "class": "UserHandler",
         "method": "register"
       }
+    ],
+    "profile": [
+      {
+        "path": "",
+        "request_method": "GET",
+        "package": "user_handler",
+        "class": "UserHandler",
+        "method": "get_profile"
+      },
+      {
+        "path": "",
+        "request_method": "PUT",
+        "package": "user_handler",
+        "class": "UserHandler",
+        "method": "update_profile"
+      }
+    ],
+    "preferences": [
+      {
+        "path": "",
+        "request_method": "PUT",
+        "package": "user_handler",
+        "class": "UserHandler",
+        "method": "update_preferences"
+      }
+    ],
+    "upload-profile-image": [
+      {
+        "path": "",
+        "request_method": "POST",
+        "package": "user_handler",
+        "class": "UserHandler",
+        "method": "upload_profile_image"
+      }
+    ],
+    "logo": [
+      {
+        "path": "",
+        "request_method": "GET",
+        "package": "user_handler",
+        "class": "UserHandler",
+        "method": "get_user_logo"
+      }
     ]
   },
   "content": {
@@ -29,5 +72,218 @@
         "method": "generate"
       }
     ]
+  },
+  "queue": {
+    "enqueue": [
+      {
+        "path": "",
+        "request_method": "POST",
+        "package": "queue_handler",
+        "class": "QueueHandler",
+        "method": "enqueue"
+      }
+    ],
+    "status": [
+      {
+        "path": "",
+        "request_method": "GET",
+        "package": "queue_handler",
+        "class": "QueueHandler",
+        "method": "status"
+      }
+    ]
+  },
+  "social": {
+    "status": [
+      {
+        "path": "",
+        "request_method": "GET",
+        "package": "social_handler",
+        "class": "SocialHandler",
+        "method": "get_status"
+      }
+    ],
+    "linkedin": {
+      "callback": [
+        {
+          "path": "",
+          "request_method": "GET",
+          "package": "social_handler",
+          "class": "SocialHandler",
+          "method": "linkedin_callback_frontend"
+        },
+        {
+          "path": "",
+          "request_method": "POST",
+          "package": "social_handler",
+          "class": "SocialHandler",
+          "method": "linkedin_callback"
+        }
+      ],
+      "disconnect": [
+        {
+          "path": "",
+          "request_method": "POST",
+          "package": "social_handler",
+          "class": "SocialHandler",
+          "method": "linkedin_disconnect"
+        }
+      ]
+    },
+    "instagram": {
+      "callback": [
+        {
+          "path": "",
+          "request_method": "GET",
+          "package": "social_handler",
+          "class": "SocialHandler",
+          "method": "instagram_callback_frontend"
+        },
+        {
+          "path": "",
+          "request_method": "POST",
+          "package": "social_handler",
+          "class": "SocialHandler",
+          "method": "instagram_callback"
+        }
+      ],
+      "disconnect": [
+        {
+          "path": "",
+          "request_method": "POST",
+          "package": "social_handler",
+          "class": "SocialHandler",
+          "method": "instagram_disconnect"
+        }
+      ]
+    },
+    "facebook": {
+      "callback": [
+        {
+          "path": "",
+          "request_method": "GET",
+          "package": "social_handler",
+          "class": "SocialHandler",
+          "method": "facebook_callback_frontend"
+        },
+        {
+          "path": "",
+          "request_method": "POST",
+          "package": "social_handler",
+          "class": "SocialHandler",
+          "method": "facebook_callback"
+        }
+      ],
+      "disconnect": [
+        {
+          "path": "",
+          "request_method": "POST",
+          "package": "social_handler",
+          "class": "SocialHandler",
+          "method": "facebook_disconnect"
+        }
+      ]
+    }
+  },
+  "crm": {
+    "webhook": {
+      "instagram": [
+        {
+          "path": "",
+          "request_method": "POST",
+          "package": "crm.crm_handler",
+          "class": "CRMHandler",
+          "method": "handle_instagram_webhook"
+        }
+      ],
+      "linkedin": [
+        {
+          "path": "",
+          "request_method": "POST",
+          "package": "crm.crm_handler",
+          "class": "CRMHandler",
+          "method": "handle_linkedin_webhook"
+        }
+      ],
+      "facebook": [
+        {
+          "path": "",
+          "request_method": "POST",
+          "package": "crm.crm_handler",
+          "class": "CRMHandler",
+          "method": "handle_facebook_webhook"
+        }
+      ]
+    },
+    "dashboard": [
+      {
+        "path": "",
+        "request_method": "GET",
+        "package": "crm.crm_handler",
+        "class": "CRMHandler",
+        "method": "get_dashboard"
+      }
+    ],
+    "leads": [
+      {
+        "path": "",
+        "request_method": "GET",
+        "package": "crm.crm_handler",
+        "class": "CRMHandler",
+        "method": "get_leads"
+      },
+      {
+        "path": "status",
+        "request_method": "PUT",
+        "package": "crm.crm_handler",
+        "class": "CRMHandler",
+        "method": "update_lead_status"
+      }
+    ],
+    "comments": [
+      {
+        "path": "",
+        "request_method": "GET",
+        "package": "crm.crm_handler",
+        "class": "CRMHandler",
+        "method": "get_comments"
+      }
+    ],
+    "analytics": [
+      {
+        "path": "",
+        "request_method": "GET",
+        "package": "crm.crm_handler",
+        "class": "CRMHandler",
+        "method": "get_analytics"
+      },
+      {
+        "path": "update",
+        "request_method": "POST",
+        "package": "crm.crm_handler",
+        "class": "CRMHandler",
+        "method": "update_daily_analytics"
+      }
+    ],
+    "pipeline": [
+      {
+        "path": "",
+        "request_method": "GET",
+        "package": "crm.crm_handler",
+        "class": "CRMHandler",
+        "method": "get_lead_pipeline"
+      }
+    ],
+    "dms": {
+      "process": [
+        {
+          "path": "",
+          "request_method": "POST",
+          "package": "crm.crm_handler",
+          "class": "CRMHandler",
+          "method": "process_pending_dms"
+        }
+      ]
+    }
   }
 }

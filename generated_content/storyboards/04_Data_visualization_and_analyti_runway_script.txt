@@ -1,0 +1,34 @@
+# RunwayML Script for: Data visualization and analytics insights
+# Style: Modern documentary with cinematic camera angles
+
+# Scene 1 (60–75)
+Prompt: 1 – Opening (0–8s) Visuals: Wide aerial shot of a bustling city at night with glowing data streams (animated lines flowing across buildings). Smooth transition into close-up of glowing digital dashboards with real-time charts. Audio/Narration: Calm but authoritative voiceover: “In today’s world. angles. Professional lighting.
+Duration: 2.0s
+
+# Scene 2 (0s)
+Prompt: of a bustling city at night with glowing data streams (animated lines flowing across buildings). Smooth transition into close-up of glowing digital dashboards with real-time charts. Audio/Narration: Calm but authoritative voiceover: “In today’s world. Professional cinematography. Professional lighting.
+Duration: 2.0s
+
+# Scene 3 (0s)
+Prompt: 2 – The Challenge (8–18s) Visuals: Cut to office workers overwhelmed by cluttered spreadsheets and static reports. Split screen: Left side messy charts, right side sleek interactive dashboards. Audio/Narration: “But without the right tools, data remains noise—hard to decode, harder to act on.”. Professional cinematography. Professional lighting.
+Duration: 2.0s
+
+# Scene 4 (0s)
+Prompt: 3 – Power of Visualization (18–30s) Visuals: Animated bar charts transforming into dynamic 3D graphs. Maps showing heat zones, timelines morphing into flowing trend lines. A financial analyst interacting with a touchscreen dashboard. Audio/Narration: “Data visualization transforms complexity into clarity, revealing insights at a glance.”. Professional cinematography. Professional lighting.
+Duration: 2.0s
+
+# Scene 5 (0s)
+Prompt: 4 – Analytics in Action (30–45s) Visuals: Diverse professionals: a healthcare researcher, a business strategist, and a student—all using tailored dashboards. Quick shots of predictive analytics graphs, anomaly detection highlights, customer sentiment visualized as word clouds. Audio/Narration: “From business strategy to healthcare to education, analytics empowers smarter, faster decisions.”. Professional cinematography. Professional lighting.
+Duration: 2.0s
+
+# Scene 6 (0s)
+Prompt: 5 – Human Impact (45–60s) Visuals: Real-world applications: Doctors monitoring patient dashboards. Educators guiding students with performance analytics. Businesses optimizing supply chains with real-time data feeds. Emotional resonance: smiling faces as results improve. Audio/Narration: “When insights meet action, data shapes the future—helping people thrive, innovate, and succeed.”. Professional cinematography. Professional lighting.
+Duration: 2.0s
+
+# Scene 7 (0s)
+Prompt: 6 – Closing (60–75s) Visuals. Professional cinematography. Professional lighting.
+Duration: 2.0s
+
+# Scene 8 (75 seconds)
+Prompt: 1 – Opening (0–8s) Visuals: Wide aerial shot of a bustling city at night with glowing data streams (animated lines flowing across buildings). Smooth transition into close-up of glowing digital dashboards with real-time charts. Audio/Narration: Calm but authoritative voiceover: “In today’s world. angles. Professional lighting.
+Duration: 2.0s

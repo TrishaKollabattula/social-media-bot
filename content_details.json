@@ -1,19 +1,62 @@
 {
-    "subtopics": [
-        "1. a) **Definition**: **Generative AI** creates original content using patterns from existing data."
+  "status": "warning",
+  "user_id": "mourya",
+  "theme": "christmas",
+  "content_type": "Promotional",
+  "template_used": "listicle",
+  "template_name": "Numbered List",
+  "subtopics": [
+    {
+      "header": "christmas - Point 1",
+      "body": "Key idea about christmas for slide 1.",
+      "key_points": [
+        "Highlight 1"
+      ],
+      "structure_type": "hook"
+    }
+  ],
+  "slide_contents": {
+    "slide_1": {
+      "title": "Christmas Magic: 5 Reasons to Get Merry",
+      "body": [
+        "Deck the halls with festive cheer! Discover the top reasons to make this Christmas unforgettable.",
+        "Sparkling lights, cozy vibes, and loved ones by your side – it's the perfect time to unwind and make memories."
+      ],
+      "structure_type": "hook",
+      "visual_hint": "numbered_list, icons_per_item, scannable_layout"
+    }
+  },
+  "captions": {
+    "post_caption": "🎄 It's the most wonderful time of the year... 🎅️\n\nAs we dive into the holiday season, I've been thinking about what makes Christmas truly special. Is it the twinkling lights ✨ that adorn our homes, creating a sense of magic and wonder? 🌟 Or is it the joy of giving 🎁, spreading love and kindness to those around us?\n\nFor me, it's a little bit of both, and so much more. The festive atmosphere 🎄, the delicious treats 🍰, and the time spent with loved ones ❤️ all come together to make Christmas a truly unforgettable experience.\n\nBut what if I told you that Christmas could be even more special this year? 🤔 Imagine a holiday season that's not just about giving and receiving, but about creating lasting memories with your loved ones. 📚 With a little creativity and planning, you can turn your Christmas into a truly unforgettable experience.\n\nHere are five ways to make this Christmas season truly special:\n\n 📈 Create a family tradition 🎉 that you'll cherish for years to come.\n 🎨 Make your own holiday decorations 🎄 that add a personal touch to your home.\n 🍽️ Host a festive dinner 🍴 that's sure to become a family favorite.\n 🎵 Create a holiday playlist 🎶 that sets the mood for the season.\n 📚 Plan a fun and festive activity 🎁 that brings your family together.\n\nAnd the best part? You don't have to break the bank to make this Christmas special. 🤑 With a little creativity and resourcefulness, you can create a holiday season that's both memorable and budget-friendly.\n\nSo, what are you waiting for? Get creative, get festive, and make this Christmas season one to remember! 🎉\n\nWhat do you think? Comment below! 💬 Share your favorite Christmas traditions and tips for making the holiday season special. Let's get the conversation started! 🎄 #CraftingBrain #Promotional #Christmas #Business #Innovation"
+  },
+  "summary": [
+    "1. christmas - Point 1: Highlight 1"
+  ],
+  "business_context": {
+    "business_type": "general"
+  },
+  "meme_mode": false,
+  "generation_metadata": {
+    "timestamp": "2025-12-30T12:00:35.777940",
+    "platforms": [
+      "facebook"
     ],
-    "slide_contents": {
-        "1. a) **Definition**: **Generative AI** creates original content using patterns from existing data.": [
-            "**Generative AI Defined**",
-            "Generative AI produces new content by analyzing and replicating patterns from existing data."
-        ]
-    },
-    "captions": {
-        "post_caption": "Exploring the fascinating world of **Generative AI**, a groundbreaking technology that harnesses patterns from existing data to create original and innovative content. \ud83c\udf1f This capability not only revolutionizes creative fields like art and music but also transforms industries such as marketing, healthcare, and beyond. By generating unique solutions, generative AI unlocks new avenues for creativity, efficiency, and personalization. Imagine a world where machines assist in drafting compelling stories or designing captivating visuals\u2014this is more than just a dream; it's becoming our reality! As we delve deeper into this technology, the potential for enhancing productivity and sparking innovation continues to inspire. Together, let's embrace the future of creativity and innovation powered by generative AI! \ud83e\udd16\u2728 #GenerativeAI #Innovation #CreativityUnleashed #TechTrends #FutureOfWork #ArtificialIntelligence #Inspiration"
-    },
-    "summary": [
-        "1. Generative AI transforms creative fields like art, music, and marketing through innovative content creation.",
-        "2. This technology enhances productivity and personalization, unlocking new avenues for creativity.",
-        "3. Embracing generative AI fuels inspiration and innovation in various industries, shaping our future."
-    ]
+    "business_type": "general",
+    "has_logo": false,
+    "has_colors": false,
+    "groq_used": true,
+    "user_id": "mourya",
+    "template_structure": [
+      "hook",
+      "item1",
+      "item2",
+      "item3",
+      "item4",
+      "item5",
+      "bonus",
+      "cta"
+    ],
+    "content_type": "Promotional",
+    "validation_passed": false
+  }
 }

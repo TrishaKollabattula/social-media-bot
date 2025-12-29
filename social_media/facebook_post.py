@@ -1,336 +1,290 @@
 import os
+import re
+import json
+import logging
+from typing import List, Optional, Tuple
+
 import boto3
 import requests
-import time
-import json
 from dotenv import load_dotenv
-from tenacity import retry, stop_after_attempt, wait_exponential
-import logging
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-# Environment variables
+# --- Env ---
 AWS_REGION = os.getenv("AWS_REGION")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
-FACEBOOK_PAGE_ID = os.getenv("FACEBOOK_PAGE_ID")
-FACEBOOK_ACCESS_TOKEN = os.getenv("FACEBOOK_ACCESS_TOKEN")
+FACEBOOK_PAGE_ID = os.getenv("FACEBOOK_PAGE_ID") or os.getenv("PAGE_ID")
+FACEBOOK_PAGE_ACCESS_TOKEN = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN") or os.getenv("PAGE_ACCESS_TOKEN")
 
-IMAGES_FOLDER = "images/"
+if not FACEBOOK_PAGE_ID or not FACEBOOK_PAGE_ACCESS_TOKEN:
+    logging.warning("⚠️ FACEBOOK_PAGE_ID or FACEBOOK_PAGE_ACCESS_TOKEN not set. Facebook posting will fail.")
 
-# Validate environment variables
-if not all([AWS_REGION, S3_BUCKET_NAME, FACEBOOK_PAGE_ID, FACEBOOK_ACCESS_TOKEN]):
-    logger.error("Missing required Facebook environment variables")
-    # Don't raise error here, just log it so the module can still be imported
+s3 = boto3.client("s3", region_name=AWS_REGION)
 
-s3 = boto3.client("s3", region_name=AWS_REGION) if AWS_REGION else None
+GRAPH_API_BASE = "https://graph.facebook.com/v18.0"
 
-# Retry decorator for API calls
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-def post_with_retry(url, data=None, files=None):
-    """Make API calls with retry mechanism"""
-    if files:
-        resp = requests.post(url, data=data, files=files, timeout=30)
-    else:
-        resp = requests.post(url, data=data, timeout=30)
-    
-    logger.info(f"Facebook API Response: {resp.status_code}")
-    resp.raise_for_status()
-    return resp
+# ---------- Helpers ----------
+def _extract_image_number(key_or_url: str) -> int:
+    """
+    Pulls the number from patterns like 'image_1_abcd.png' so we can order correctly.
+    If no number is found, return a high sentinel so it goes to the end.
+    """
+    m = re.search(r"image_(\d+)_", key_or_url)
+    if not m:
+        m = re.search(r"image-(\d+)-", key_or_url)  # secondary pattern, just in case
+    return int(m.group(1)) if m else 999999
 
-def load_captions_from_content_details():
-    """Load captions from content_details.json file"""
+def _sort_image_urls_by_number(urls: List[str]) -> List[str]:
+    return sorted(urls, key=_extract_image_number)
+
+def _s3_url(key: str) -> str:
+    # Regional S3 URL (matches your other modules)
+    return f"https://{S3_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{key}"
+
+def _get_latest_generated_images_from_s3(num_images: int) -> List[str]:
+    """
+    Fetch the most recently uploaded images from s3://{bucket}/images/, then
+    re-order them by image number so 'image_1_' posts first, 'image_2_' second, etc.
+    """
     try:
-        with open("content_details.json", "r") as f:
-            content_details = json.load(f)
-        
-        captions_dict = content_details.get("captions", {})
-        all_captions = []
-        
-        # Extract all captions from the captions dictionary
-        for subtopic, caption_list in captions_dict.items():
-            if isinstance(caption_list, list) and caption_list:
-                # Take the first caption from each subtopic
-                all_captions.append(caption_list[0])
-            elif isinstance(caption_list, str):
-                all_captions.append(caption_list)
-        
-        logger.info(f"Loaded {len(all_captions)} captions from content_details.json")
-        return all_captions
-        
-    except FileNotFoundError:
-        logger.warning("content_details.json not found, will use provided caption")
-        return []
-    except json.JSONDecodeError:
-        logger.error("Error decoding content_details.json")
-        return []
+        resp = s3.list_objects_v2(Bucket=S3_BUCKET_NAME, Prefix="images/")
+        if "Contents" not in resp:
+            logging.error("No 'Contents' in S3 list_objects_v2 response.")
+            return []
+
+        image_objs = [
+            obj for obj in resp["Contents"]
+            if obj["Key"] != "images/" and obj["Key"].lower().endswith((".jpg", ".jpeg", ".png"))
+        ]
+
+        if not image_objs:
+            logging.error("No images found in s3://%s/images/ folder.", S3_BUCKET_NAME)
+            return []
+
+        # Sort by LastModified desc to get latest generated set
+        image_objs = sorted(image_objs, key=lambda x: x["LastModified"], reverse=True)[:num_images]
+
+        # Now order by image number so 'image_1_' comes before 'image_2_'
+        image_objs = sorted(image_objs, key=lambda x: _extract_image_number(x["Key"]))
+
+        urls = [_s3_url(o["Key"]) for o in image_objs]
+        logging.info("✅ Latest S3 images for Facebook: %s", [o["Key"] for o in image_objs])
+        return urls
+
     except Exception as e:
-        logger.error(f"Error loading captions: {str(e)}")
+        logging.exception("Failed to fetch images from S3: %s", str(e))
         return []
 
-def get_summary_as_fallback_caption():
-    """Get summary from content_details.json as fallback caption"""
+def _get_post_caption_from_content_details() -> str:
+    """
+    Pull post caption from content_details.json (priority: captions.post_caption).
+    Fallback to a generic line if not found.
+    """
     try:
-        with open("content_details.json", "r") as f:
-            content_details = json.load(f)
-        
-        summary = content_details.get("summary", [])
-        if summary:
-            return "\n".join(summary)
-        return ""
-        
+        with open("content_details.json", "r", encoding="utf-8") as f:
+            content = json.load(f)
+
+        captions = content.get("captions", {})
+        if isinstance(captions, dict) and "post_caption" in captions:
+            cap = captions["post_caption"]
+            if isinstance(cap, str) and cap.strip():
+                return cap.strip()
+
+        # Secondary fallback
+        if "post_caption" in content and isinstance(content["post_caption"], str):
+            return content["post_caption"].strip()
+
+        # Tertiary fallback: long paragraph from captions dict (first long one)
+        for _, v in captions.items():
+            if isinstance(v, list) and v:
+                if isinstance(v[0], str) and len(v[0]) > 100:
+                    return v[0].strip()
+
+        # Final fallback
+        return "AI-powered content automation in action! #AI #Technology #Innovation"
     except Exception as e:
-        logger.error(f"Error loading summary: {str(e)}")
-        return ""
+        logging.warning("Could not read caption from content_details.json: %s", str(e))
+        return "AI-powered content automation in action! #AI #Technology #Innovation"
 
-def validate_image_url(img_url):
-    """Validate if the URL is a valid image URL (public or signed)."""
+def _create_media_fbid(image_url: str) -> Tuple[bool, Optional[str], Optional[str]]:
+    """
+    Upload a photo to the page as unpublished (published=false) to obtain a media_fbid.
+    Returns (success, media_fbid, error_message)
+    """
     try:
-        # Allow signed URLs or public S3 URLs
-        if not (img_url.startswith(f"https://{S3_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{IMAGES_FOLDER}") or "AWSAccessKeyId" in img_url):
-            logger.error(f"Invalid image URL format: {img_url}")
-            return False
-        
-        resp = requests.head(img_url, timeout=5, allow_redirects=True)
-        resp.raise_for_status()
-        content_type = resp.headers.get("Content-Type", "")
-        if not content_type.startswith("image/"):
-            logger.error(f"URL is not an image: {img_url}, Content-Type: {content_type}")
-            return False
-        return True
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Image URL inaccessible: {img_url}, Error: {str(e)}")
-        return False
-
-def check_facebook_token_validity():
-    """Check if Facebook access token is valid"""
-    try:
-        if not FACEBOOK_ACCESS_TOKEN:
-            return False, "Facebook access token not configured"
-            
-        token_check_url = f"https://graph.facebook.com/v19.0/me?access_token={FACEBOOK_ACCESS_TOKEN}"
-        token_check_resp = requests.get(token_check_url, timeout=10)
-        if token_check_resp.status_code != 200:
-            logger.error(f"Invalid Facebook access token: {token_check_resp.text}")
-            return False, f"Invalid Facebook access token: {token_check_resp.text}"
-        return True, "Token is valid"
-    except Exception as e:
-        logger.error(f"Failed to validate Facebook access token: {str(e)}")
-        return False, f"Failed to validate Facebook access token: {str(e)}"
-
-def post_single_image_to_facebook(image_url, caption="", image_index=0, total_images=1):
-    """Post a single image to Facebook"""
-    try:
-        # Check if Facebook is properly configured
-        if not all([FACEBOOK_PAGE_ID, FACEBOOK_ACCESS_TOKEN]):
-            return {
-                "status": "error",
-                "message": "Facebook credentials not configured",
-                "image_url": image_url
-            }
-        
-        # Load captions from content_details.json if no caption provided
-        if not caption:
-            captions = load_captions_from_content_details()
-            if captions and image_index < len(captions):
-                caption = captions[image_index]
-            else:
-                # Fallback to summary
-                caption = get_summary_as_fallback_caption()
-                if not caption:
-                    caption = "Check out this amazing AI-generated content! 🚀✨"
-        
-        # Add image numbering for multiple images
-        if total_images > 1:
-            caption = f"{caption}\n\n(Image {image_index + 1} of {total_images})"
-        
-        # Method 1: Using image URL directly
-        url = f"https://graph.facebook.com/v19.0/{FACEBOOK_PAGE_ID}/photos"
-        payload = {
-            'url': image_url,
-            'caption': caption,
-            'access_token': FACEBOOK_ACCESS_TOKEN
+        url = f"{GRAPH_API_BASE}/{FACEBOOK_PAGE_ID}/photos"
+        data = {
+            "url": image_url,
+            "published": "false",
+            "access_token": FACEBOOK_PAGE_ACCESS_TOKEN,
         }
-        
-        response = post_with_retry(url, data=payload)
-        result = response.json()
-        
-        if 'id' in result:
-            logger.info(f"✅ Image posted successfully to Facebook: {result['id']}")
-            return {
-                "status": "success",
-                "message": "Image posted successfully",
-                "post_id": result['id'],
-                "image_url": image_url
-            }
-        else:
-            logger.error(f"❌ Failed to post image: {result}")
-            return {
-                "status": "error",
-                "message": f"Failed to post image: {result}",
-                "image_url": image_url
-            }
-            
-    except requests.exceptions.HTTPError as e:
-        logger.error(f"❌ HTTP error posting image: {str(e)}")
-        
-        # Method 2: Fallback - Download and upload binary
-        try:
-            logger.info("Trying fallback method: downloading and uploading binary data")
-            
-            # Download image
-            img_response = requests.get(image_url, timeout=30)
-            img_response.raise_for_status()
-            
-            # Upload binary data
-            url = f"https://graph.facebook.com/v19.0/{FACEBOOK_PAGE_ID}/photos"
-            files = {'source': ('image.png', img_response.content, 'image/png')}
+        r = requests.post(url, data=data, timeout=60)
+        if r.status_code == 200:
+            j = r.json()
+            media_fbid = j.get("id")
+            if media_fbid:
+                return True, media_fbid, None
+            return False, None, f"Missing media_fbid in response: {j}"
+        return False, None, f"HTTP {r.status_code}: {r.text}"
+    except Exception as e:
+        return False, None, f"Exception while creating media fbid: {str(e)}"
+
+def _create_feed_post_with_media(media_fbids: List[str], caption: str) -> Tuple[bool, Optional[str], Optional[str]]:
+    """
+    Create a Page feed post using multiple media objects (carousel-style in a single post).
+    Returns (success, post_id, error_message)
+    """
+    try:
+        url = f"{GRAPH_API_BASE}/{FACEBOOK_PAGE_ID}/feed"
+        attached_media = [{"media_fbid": fbid} for fbid in media_fbids]
+
+        data = {
+            "message": caption,
+            "access_token": FACEBOOK_PAGE_ACCESS_TOKEN,
+        }
+        # attached_media needs to be passed as attached_media[0], attached_media[1], ...
+        files = {}
+        for idx, item in enumerate(attached_media):
+            data[f"attached_media[{idx}]"] = json.dumps(item)
+
+        r = requests.post(url, data=data, files=files, timeout=60)
+        if r.status_code == 200:
+            j = r.json()
+            post_id = j.get("id")
+            if post_id:
+                return True, post_id, None
+            return False, None, f"Missing post_id in response: {j}"
+        return False, None, f"HTTP {r.status_code}: {r.text}"
+    except Exception as e:
+        return False, None, f"Exception while creating feed post: {str(e)}"
+
+# ---------- Public API ----------
+def post_images_to_facebook(
+    image_urls: Optional[List[str]] = None,
+    caption: Optional[str] = None,
+    num_images: int = 1
+) -> dict:
+    """
+    Posts 1..N images to a single Facebook Page post.
+    - If image_urls is None or empty, fetch the latest from s3://{bucket}/images/
+    - Caption defaults to content_details.json's captions.post_caption
+    - For 1 image: direct /photos with message (published=true)
+    - For >1 images: create unpublished photos to get media_fbids, then post /feed with attached_media[]
+
+    Returns dict with status, details, and IDs.
+    """
+    try:
+        if not FACEBOOK_PAGE_ID or not FACEBOOK_PAGE_ACCESS_TOKEN:
+            return {"status": "error", "message": "FACEBOOK_PAGE_ID or FACEBOOK_PAGE_ACCESS_TOKEN is not configured"}
+
+        # Prepare images
+        urls = image_urls or _get_latest_generated_images_from_s3(num_images)
+        if not urls:
+            return {"status": "error", "message": "No images available to post"}
+        # keep user-intended order by number (image_1_, image_2_, ...)
+        urls = _sort_image_urls_by_number(urls)[:max(1, int(num_images))]
+
+        # Prepare caption
+        message = caption if (isinstance(caption, str) and caption.strip()) else _get_post_caption_from_content_details()
+
+        if len(urls) == 1:
+            # Single-image post to /photos (published)
+            url = f"{GRAPH_API_BASE}/{FACEBOOK_PAGE_ID}/photos"
             data = {
-                'caption': caption,
-                'access_token': FACEBOOK_ACCESS_TOKEN
+                "url": urls[0],
+                "message": message,
+                "published": "true",
+                "access_token": FACEBOOK_PAGE_ACCESS_TOKEN,
             }
-            
-            response = post_with_retry(url, data=data, files=files)
-            result = response.json()
-            
-            if 'id' in result:
-                logger.info(f"✅ Image posted successfully via fallback method: {result['id']}")
-                return {
-                    "status": "success",
-                    "message": "Image posted successfully (fallback method)",
-                    "post_id": result['id'],
-                    "image_url": image_url
-                }
+            r = requests.post(url, data=data, timeout=60)
+            if r.status_code == 200:
+                j = r.json()
+                photo_id = j.get("id")
+                post_url = f"https://facebook.com/{photo_id}" if photo_id else None
+                return {"status": "success", "type": "single", "photo_id": photo_id, "post_url": post_url}
+            return {"status": "error", "message": f"HTTP {r.status_code}: {r.text}"}
+
+        # Multi-image: create unpublished photos -> collect media_fbids -> post feed with attached_media
+        fbids = []
+        errors = []
+        for u in urls:
+            ok, fbid, err = _create_media_fbid(u)
+            if ok and fbid:
+                fbids.append(fbid)
             else:
-                logger.error(f"❌ Fallback method also failed: {result}")
-                return {
-                    "status": "error",
-                    "message": f"Both methods failed: {result}",
-                    "image_url": image_url
-                }
-                
-        except Exception as fallback_error:
-            logger.error(f"❌ Fallback method failed: {str(fallback_error)}")
-            return {
-                "status": "error",
-                "message": f"Both posting methods failed. Original error: {str(e)}, Fallback error: {str(fallback_error)}",
-                "image_url": image_url
-            }
-    
-    except Exception as e:
-        logger.error(f"❌ Unexpected error posting image: {str(e)}")
+                errors.append({"image_url": u, "error": err})
+        if not fbids:
+            return {"status": "error", "message": "Failed to create any media objects", "details": errors}
+
+        ok, post_id, err = _create_feed_post_with_media(fbids, message)
+        if not ok:
+            return {"status": "error", "message": err or "Failed to create feed post", "details": errors}
+
         return {
-            "status": "error",
-            "message": f"Unexpected error: {str(e)}",
-            "image_url": image_url
+            "status": "success",
+            "type": "multi",
+            "post_id": post_id,
+            "attached_media_count": len(fbids),
+            "errors": errors or None,
+            "post_url": f"https://facebook.com/{post_id}" if post_id else None,
         }
 
-def post_images_to_facebook(image_urls=None, caption="", num_images=1):
-    """
-    Main function to post images to Facebook.
-    If image_urls is None or empty, fetch latest images from S3.
-    """
-    try:
-        # Check if Facebook is properly configured
-        if not all([FACEBOOK_PAGE_ID, FACEBOOK_ACCESS_TOKEN]):
-            return {
-                "status": "error", 
-                "message": "Facebook credentials not configured (FACEBOOK_PAGE_ID, FACEBOOK_ACCESS_TOKEN)"
-            }
-        
-        # Validate Facebook token
-        token_valid, token_message = check_facebook_token_validity()
-        if not token_valid:
-            return {"status": "error", "message": token_message}
-        
-        # Validate num_images
-        if isinstance(num_images, str):
-            try:
-                num_images = int(num_images)
-            except ValueError:
-                logger.error(f"Invalid num_images value: {num_images}")
-                return {"status": "error", "message": f"Invalid num_images value: {num_images}"}
-        
-        if not isinstance(num_images, int) or num_images < 1:
-            logger.error(f"Invalid num_images: {num_images}, must be a positive integer")
-            return {"status": "error", "message": f"Invalid num_images: {num_images}, must be a positive integer"}
-
-        # Fetch images from S3 if image_urls is None or empty
-        if image_urls is None or not image_urls:
-            try:
-                if not s3:
-                    return {"status": "error", "message": "AWS S3 not configured"}
-                    
-                response = s3.list_objects_v2(Bucket=S3_BUCKET_NAME, Prefix=IMAGES_FOLDER)
-                image_keys = [obj['Key'] for obj in response.get('Contents', []) if obj['Key'] != IMAGES_FOLDER]
-                
-                if not image_keys:
-                    logger.error("No images found in S3 'images/' folder")
-                    return {"status": "error", "message": "No images found in S3 'images/' folder"}
-
-                # Sort by last modified (newest first) and take the requested number
-                sorted_keys = sorted(response['Contents'], key=lambda x: x['LastModified'], reverse=True)
-                selected_keys = [obj['Key'] for obj in sorted_keys if obj['Key'] != IMAGES_FOLDER][:num_images]
-                image_urls = [f"https://{S3_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{key}" for key in selected_keys]
-                
-                logger.info(f"Fetched {len(image_urls)} images from S3 for Facebook")
-                
-            except Exception as e:
-                logger.error(f"Failed to fetch images from S3: {str(e)}")
-                return {"status": "error", "message": f"Failed to fetch images from S3: {str(e)}"}
-
-        # Validate image URLs
-        valid_image_urls = [url for url in image_urls if validate_image_url(url)]
-        if not valid_image_urls:
-            logger.error("No valid image URLs provided after validation")
-            return {"status": "error", "message": "No valid image URLs provided after validation"}
-
-        # Use only the requested number of images
-        valid_image_urls = valid_image_urls[:num_images]
-        
-        logger.info(f"Posting {len(valid_image_urls)} images to Facebook")
-
-        # Post images (Facebook posts each image separately)
-        results = []
-        captions = load_captions_from_content_details() if not caption else []
-        
-        for idx, image_url in enumerate(valid_image_urls):
-            # Use specific caption for each image if available
-            if captions and idx < len(captions):
-                image_caption = captions[idx]
-            elif caption:
-                image_caption = caption
-            else:
-                # Fallback to summary
-                image_caption = get_summary_as_fallback_caption()
-                if not image_caption:
-                    image_caption = "Check out this amazing AI-generated content! 🚀✨"
-            
-            result = post_single_image_to_facebook(
-                image_url, 
-                image_caption, 
-                image_index=idx, 
-                total_images=len(valid_image_urls)
-            )
-            results.append(result)
-            
-            # Add delay between posts to avoid rate limiting
-            if idx < len(valid_image_urls) - 1:
-                time.sleep(5)
-        
-        successful_posts = sum(1 for r in results if r["status"] == "success")
-        
-        return {
-            "status": "success" if successful_posts > 0 else "error",
-            "message": f"Posted {successful_posts} out of {len(results)} images successfully to Facebook",
-            "results": results,
-            "total_images": len(results),
-            "successful_posts": successful_posts
-        }
-            
     except Exception as e:
-        logger.error(f"Unexpected error in post_images_to_facebook: {str(e)}")
-        return {"status": "error", "message": f"Unexpected error: {str(e)}"}
+        logging.exception("Facebook posting failed: %s", str(e))
+        return {"status": "error", "message": str(e)}
+
+
+
+
+
+# if __name__ == "__main__":
+#     import argparse
+#     import sys
+
+#     # Verbose logs for quick debugging
+#     logging.basicConfig(
+#         level=logging.INFO,
+#         format="%(asctime)s - %(levelname)s - %(message)s"
+#     )
+
+#     # Quick sanity checks
+#     if not AWS_REGION or not S3_BUCKET_NAME:
+#         logging.error("AWS_REGION or S3_BUCKET_NAME missing. Check your .env")
+#         sys.exit(1)
+#     if not FACEBOOK_PAGE_ID or not FACEBOOK_PAGE_ACCESS_TOKEN:
+#         logging.error("FACEBOOK_PAGE_ID or FACEBOOK_PAGE_ACCESS_TOKEN missing. Check your .env")
+#         sys.exit(1)
+
+#     # CLI arguments: python this_file.py --num 2 --caption "optional caption"
+#     parser = argparse.ArgumentParser(description="Test Facebook multi-image posting from latest S3 images.")
+#     parser.add_argument("--num", dest="num_images", type=int, default=int(os.getenv("TEST_FB_NUM_IMAGES", "2")),
+#                         help="How many images to post (default: 2)")
+#     parser.add_argument("--caption", dest="caption", type=str, default=None,
+#                         help="Optional caption override")
+#     parser.add_argument("--use-s3-latest", action="store_true",
+#                         help="Force fetching latest images from S3 (default behavior)")
+#     args = parser.parse_args()
+
+#     # Fetch which images we’re about to use (for visibility before posting)
+#     # This respects your image-number ordering (image_1_ first, image_2_ next, etc.)
+#     candidate_urls = _get_latest_generated_images_from_s3(args.num_images)
+#     candidate_urls = _sort_image_urls_by_number(candidate_urls)[:max(1, args.num_images)]
+#     logging.info("🧪 Candidate images to post (in order): %s", candidate_urls)
+
+#     # Kick off the post (passing image_urls is optional — your function can fetch itself)
+#     result = post_images_to_facebook(
+#         image_urls=candidate_urls,  # or None to let it fetch again internally
+#         caption=args.caption,       # or None to auto-pull from content_details.json
+#         num_images=args.num_images
+#     )
+
+#     # Pretty print result
+#     print(json.dumps(result, indent=2, ensure_ascii=False))
+
+#     # Helpful hints on common failures
+#     if result.get("status") != "success":
+#         logging.warning("❗Post failed. Common causes:")
+#         logging.warning(" - Missing/invalid Page token (must be a PAGE token with pages_manage_posts).")
+#         logging.warning(" - App not in a role with access (Dev Mode only works for admins/developers/testers).")
+#         logging.warning(" - Images not publicly reachable (check S3 object ACL and URL).")
+#         logging.warning(" - Wrong Graph API version or endpoint shape.")
