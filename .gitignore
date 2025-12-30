@@ -1,6 +1,48 @@
-.env
-*.env
-.env.*
-**/.env
+# ===============================
+# Python
+# ===============================
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# ===============================
+# Environment / Secrets
+# ===============================
+.env
+*.env
+
+# ===============================
+# Generated / Runtime Files
+# ===============================
+content_details.json
+content_details*.json
+*.log
+
+# ===============================
+# Image / Media (generated or user uploads)
+# ===============================
+user_logo_*.png
+generated_images/
+uploads/
+temp/
+output/
+
+# ===============================
+# Build / Cache
+# ===============================
+.cache/
+build/
+dist/
+
+# ===============================
+# VS Code / IDE
+# ===============================
+.vscode/
+.idea/
+
+# ===============================
+# OS Files
+# ===============================
+.DS_Store
+Thumbs.db
