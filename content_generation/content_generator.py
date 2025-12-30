@@ -164,7 +164,7 @@ class ContentGenerator:
                     'has_logo': item.get('has_logo', False),
                     'logo_s3_url': item.get('logo_s3_url', '')
                 }
-
+#commit
                 # Convert has_logo to boolean
                 if isinstance(business_data['has_logo'], str):
                     business_data['has_logo'] = business_data['has_logo'].lower() == 'true'
