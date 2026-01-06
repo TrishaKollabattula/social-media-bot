@@ -1,12 +1,4 @@
-# image_generation/image_generator.py
-# ✅ FIXED: Loop state management - no errors in iteration
-# ✅ FIXED: State capture timing - captures current state, not stale
-# ✅ FIXED: Clean separation between feedback and next prompt
-# ✅ FIXED: All infinite loop conditions resolved
-# ✅ FIXED: Consecutive failure tracking with circuit breaker
-# ✅ FIXED: Per-image timeout enforcement
-# ✅ FIXED: Browser health monitoring
-# ✅ OPTIMIZED: Reduced latency with smarter timeouts
+
 
 from __future__ import annotations
 
