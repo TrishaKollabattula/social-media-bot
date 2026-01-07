@@ -48,19 +48,30 @@ class QueueHandler:
             body = request.get("body")
             
             if not body:
-                return {"error": "Request body is required"}, 400
+                return {
+                    "statusCode": 400,
+                    "body": json.dumps({"error": "Request body is required"})
+                }
             
             # Parse body
             data = json.loads(body) if isinstance(body, str) else body
 
-            # Extract user information
-            username = data.get("username") or data.get("userId")
+            # Extract user information from multiple sources
+            claims = context.get("claims", {})
+            username = (
+                data.get("username") 
+                or data.get("userId") 
+                or data.get("user_id")
+                or claims.get("username")
+            )
+            
             if not username:
                 logger.warning("No username provided in request")
                 username = "unknown"
             
             # Set user_id if not present
-            data.setdefault("user_id", username)
+            data["user_id"] = username
+            data["username"] = username
 
             # Get user email (from request or DynamoDB)
             user_email = (
@@ -71,22 +82,24 @@ class QueueHandler:
             
             if user_email:
                 data["user_email"] = user_email
-                logger.info(f"User email found: {user_email}")
+                logger.info(f"✅ User email found: {user_email}")
             else:
-                logger.warning(f"No email found for user '{username}' - notifications will be skipped")
+                logger.warning(f"⚠️  No email found for user '{username}' - notifications will be skipped")
 
             # Validate required fields
             prompt = data.get("prompt")
-            content_type = data.get("contentType")
-            
             if not prompt:
-                return {"error": "Prompt is required"}, 400
-            if not content_type:
-                return {"error": "Content type is required"}, 400
+                return {
+                    "statusCode": 400,
+                    "body": json.dumps({"error": "Prompt is required"})
+                }
 
-            # Get optional parameters
-            num_images = int(data.get("numImages", 1))
-            platforms = data.get("platforms", {})
+            content_type = data.get("contentType")
+            if not content_type:
+                return {
+                    "statusCode": 400,
+                    "body": json.dumps({"error": "Content type is required"})
+                }
 
             # Build event for worker
             event = {
@@ -100,16 +113,16 @@ class QueueHandler:
             }
 
             # Enqueue the job
-            logger.info(f"Enqueueing job for user '{username}'")
+            logger.info(f"📝 Enqueueing job for user '{username}'")
+            logger.info(f"📋 Prompt: {prompt[:100]}...")
+            
             job_id = enqueue_job(event, job_type="CONTENT_GENERATE")
             
             # Mark as queued in DynamoDB
             mark_queued(job_id, {
                 "username": username,
-                "prompt": prompt,
+                "prompt": prompt[:200],  # Truncate for storage
                 "content_type": content_type,
-                "num_images": num_images,
-                "platforms": platforms
             })
             
             logger.info(f"✅ Job {job_id} enqueued successfully")
@@ -131,27 +144,38 @@ class QueueHandler:
             queue_depth = max(get_queue_depth(), 1)
             estimated_minutes = queue_depth * AVG_JOB_MINUTES
 
-            # Return success response
+            # ✅ Return proper Lambda response format
             return {
-                "status": "queued",
-                "job_id": job_id,
-                "message": "Job has been queued for processing",
-                "queue_position": queue_depth,
-                "estimated_minutes": estimated_minutes,
-                "estimated_time": f"{estimated_minutes} minutes"
-            }, 202
+                "statusCode": 202,
+                "body": json.dumps({
+                    "status": "queued",
+                    "job_id": job_id,
+                    "message": "Job has been queued for processing. You will receive email updates.",
+                    "queue_position": queue_depth,
+                    "estimated_minutes": estimated_minutes,
+                })
+            }
 
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON in request body: {e}")
-            return {"error": "Invalid JSON in request body"}, 400
+            return {
+                "statusCode": 400,
+                "body": json.dumps({"error": "Invalid JSON in request body"})
+            }
             
         except ValueError as e:
             logger.error(f"Invalid parameter value: {e}")
-            return {"error": f"Invalid parameter: {str(e)}"}, 400
+            return {
+                "statusCode": 400,
+                "body": json.dumps({"error": f"Invalid parameter: {str(e)}"})
+            }
             
         except Exception as e:
             logger.error(f"❌ Error enqueueing job: {e}", exc_info=True)
-            return {"error": f"Failed to enqueue job: {str(e)}"}, 500
+            return {
+                "statusCode": 500,
+                "body": json.dumps({"error": f"Failed to enqueue job: {str(e)}"})
+            }
 
     def get_status(self, context):
         """
@@ -163,19 +187,30 @@ class QueueHandler:
             request = context["request"]
             path = request.get("path", "")
             
-            # Extract job_id from path
-            # Expected path: /queue/status/{job_id}
-            parts = path.strip("/").split("/")
-            if len(parts) < 3:
-                return {"error": "Job ID is required"}, 400
+            # Extract job_id from path: /queue/status/{job_id}
+            parts = [p for p in path.strip("/").split("/") if p]
             
-            job_id = parts[2]
+            # Find job_id (should be after 'status')
+            job_id = None
+            for i, part in enumerate(parts):
+                if part == "status" and i + 1 < len(parts):
+                    job_id = parts[i + 1]
+                    break
             
-            logger.info(f"Getting status for job {job_id}")
+            if not job_id:
+                return {
+                    "statusCode": 400,
+                    "body": json.dumps({"error": "Job ID is required in path: /queue/status/{job_id}"})
+                }
+            
+            logger.info(f"🔍 Getting status for job: {job_id}")
             status = get_status(job_id)
             
             if not status:
-                return {"error": "Job not found"}, 404
+                return {
+                    "statusCode": 404,
+                    "body": json.dumps({"error": "Job not found"})
+                }
             
             # Convert Decimal types for JSON serialization
             import decimal
@@ -187,8 +222,16 @@ class QueueHandler:
             # Clean response
             response = json.loads(json.dumps(status, default=decimal_default))
             
-            return response, 200
+            logger.info(f"✅ Job status retrieved: {response.get('status', 'unknown')}")
+            
+            return {
+                "statusCode": 200,
+                "body": json.dumps(response)
+            }
             
         except Exception as e:
             logger.error(f"❌ Error getting job status: {e}", exc_info=True)
-            return {"error": f"Failed to get job status: {str(e)}"}, 500
+            return {
+                "statusCode": 500,
+                "body": json.dumps({"error": f"Failed to get job status: {str(e)}"})
+            }

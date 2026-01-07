@@ -1,5 +1,5 @@
-# server.py - FIXED CORS ISSUES
-from flask import Flask, request, jsonify, make_response
+# server.py - UPDATED (LinkedIn popup callback FIX + keep your queue system)
+from flask import Flask, request, jsonify, make_response, Response
 import json
 import os
 import requests
@@ -31,10 +31,12 @@ except ImportError as e:
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
+# ---------------------------
 # LinkedIn config
+# ---------------------------
 CLIENT_ID = os.getenv("LINKEDIN_CLIENT_ID")
 CLIENT_SECRET = os.getenv("LINKEDIN_CLIENT_SECRET")
-REDIRECT_URI = os.getenv("LINKEDIN_REDIRECT_URI")
+REDIRECT_URI = os.getenv("LINKEDIN_REDIRECT_URI")  # MUST MATCH /social/linkedin/callback exactly
 
 # AWS config for user lookup
 AWS_REGION = os.getenv("AWS_REGION", "ap-south-1")
@@ -67,47 +69,191 @@ def _cookie_value(cookie_header: str, key: str):
 
 app = Flask(__name__)
 
-# ✅ FIXED CORS - Simplified configuration
-CORS(app, 
-     resources={r"/*": {"origins": "*"}},  # Allow all origins for now
-     supports_credentials=True,
-     allow_headers=["Content-Type", "Authorization"],
-     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+# ✅ FIXED CORS (Production safe)
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "https://postingexpert.com",
+    "https://www.postingexpert.com",
+]
+
+CORS(
+    app,
+    resources={r"/*": {"origins": ALLOWED_ORIGINS}},
+    supports_credentials=False,
+    allow_headers=["Content-Type", "Authorization"],
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+)
 
 @app.route('/')
 def home():
     return "Flask server is running!"
-# ✅ ADD THIS HEALTH CHECK ROUTE
+
+# ✅ HEALTH CHECK
 @app.route('/health', methods=['GET', 'OPTIONS'])
 def health_check():
-    """Health check endpoint - indicates server is fully ready."""
     if request.method == 'OPTIONS':
         return '', 204
-    
     return jsonify({
         "status": "ready",
         "message": "Flask server is running",
         "timestamp": int(time.time())
     }), 200
-# ✅ END OF HEALTH CHECK ROUTE
-
 
 @app.route('/favicon.ico')
 def favicon():
     return "", 204
 
-# ================== QUEUE ENDPOINTS (FIXED) ==================
+# ============================================================
+# ✅✅✅ LINKEDIN OAUTH POPUP CALLBACK FIX (MOST IMPORTANT)
+# Put this BEFORE the catch-all route.
+# LinkedIn redirects with GET to /social/linkedin/callback?code=...&state=...
+# ============================================================
+@app.route("/social/linkedin/callback", methods=["GET"])
+def linkedin_oauth_callback_popup():
+    """
+    LinkedIn redirects here (GET) after user login/consent.
+    We exchange code -> access_token -> person_urn
+    Then return HTML that runs JS and postMessage() to opener.
+    """
+    try:
+        code = request.args.get("code")
+        state = request.args.get("state")  # you passed appUser as state in frontend
+
+        if not code:
+            payload = {
+                "type": "linkedin_callback",
+                "success": False,
+                "error": "No authorization code provided",
+            }
+            html = f"""
+            <!doctype html><html><body>
+            <script>
+              window.opener && window.opener.postMessage({json.dumps(payload)}, "*");
+              window.close();
+            </script>
+            </body></html>
+            """
+            return Response(html, mimetype="text/html")
+
+        # 1) Exchange code for access token
+        token_resp = requests.post(
+            "https://www.linkedin.com/oauth/v2/accessToken",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": REDIRECT_URI,
+                "client_id": CLIENT_ID,
+                "client_secret": CLIENT_SECRET
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=20
+        )
+        token_resp.raise_for_status()
+        token_json = token_resp.json()
+        access_token = token_json.get("access_token")
+
+        if not access_token:
+            raise Exception(f"No access_token returned by LinkedIn: {token_json}")
+
+        # 2) Fetch profile (person id)
+        profile_resp = requests.get(
+            "https://api.linkedin.com/v2/me",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=20
+        )
+        profile_resp.raise_for_status()
+        profile_data = profile_resp.json()
+        person_id = profile_data.get("id")
+
+        if not person_id:
+            raise Exception(f"Failed to get person id from LinkedIn: {profile_data}")
+
+        person_urn = f"urn:li:person:{person_id}"
+
+        # ✅ TODO: Save token & person_urn using `state` as appUser
+        # Example: save_linkedin_tokens(app_user=state, access_token=access_token, person_urn=person_urn)
+
+        payload = {
+            "type": "linkedin_callback",
+            "success": True,
+            "posting_method": "Personal Profile",
+            "organization_count": 0,
+            "has_org_access": False,
+            "person_urn": person_urn,
+            "org_urn": None,
+            "message": "LinkedIn connected successfully!"
+        }
+
+        html = f"""
+        <!doctype html>
+        <html>
+          <head><meta charset="utf-8"><title>LinkedIn Connected</title></head>
+          <body>
+            <script>
+              (function() {{
+                var data = {json.dumps(payload)};
+                if (window.opener) {{
+                  window.opener.postMessage(data, "*");
+                }}
+                window.close();
+              }})();
+            </script>
+            <p>LinkedIn connected. You can close this window.</p>
+          </body>
+        </html>
+        """
+        return Response(html, mimetype="text/html")
+
+    except Exception as e:
+        payload = {
+            "type": "linkedin_callback",
+            "success": False,
+            "error": str(e),
+        }
+        html = f"""
+        <!doctype html><html><body>
+        <script>
+          window.opener && window.opener.postMessage({json.dumps(payload)}, "*");
+          window.close();
+        </script>
+        <p>LinkedIn connect failed: {str(e)}</p>
+        </body></html>
+        """
+        return Response(html, mimetype="text/html")
+
+# ================== QUEUE ENDPOINTS (YOUR SAME CODE) ==================
+
+
+@app.route("/user/profile", methods=["GET"])
+def user_profile():
+    """
+    Return user profile from DynamoDB Users table.
+    Needs Bearer token that includes username in claims OR fallback localStorage user.
+    """
+    auth = request.headers.get("Authorization") or ""
+    if not auth.startswith("Bearer "):
+        return jsonify({"error": "Authorization missing"}), 401
+
+    # ✅ If your JWT has username in it, decode it here (best)
+    # For now, quick fallback: accept ?username=...
+    username = request.args.get("username")
+    if not username:
+        return jsonify({"error": "username required (add JWT decode for production)"}), 400
+
+    try:
+        resp = users_table.get_item(Key={"username": username})
+        item = (resp.get("Item") or {})
+        return jsonify({"profile": item}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 
 @app.route('/queue/enqueue', methods=['POST', 'OPTIONS'])
 def queue_enqueue():
-    """
-    Enqueue a content generation job.
-    Users get immediate confirmation and email notification.
-    """
-    # ✅ Let Flask-CORS handle OPTIONS automatically
     if request.method == 'OPTIONS':
         return '', 204
-    
+
     try:
         raw_body = request.data.decode("utf-8") if request.data else "{}"
         try:
@@ -119,11 +265,10 @@ def queue_enqueue():
         query = request.args.to_dict()
         cookie_header = headers.get("Cookie") or headers.get("cookie") or ""
 
-        # Resolve username from multiple places
         username = (
             body_json.get("username")
             or body_json.get("userId")
-            or body_json.get("user_id")  # ✅ Added
+            or body_json.get("user_id")
             or headers.get("X-User-Resolved")
             or headers.get("X-Username")
             or headers.get("X-App-User")
@@ -131,12 +276,10 @@ def queue_enqueue():
             or _cookie_value(cookie_header, "app_user")
         )
 
-        # Ensure user_id present for downstream handlers
         if username:
             body_json["user_id"] = username
-            body_json["username"] = username  # ✅ Added
+            body_json["username"] = username
 
-        # Resolve email
         user_email = (
             body_json.get("email")
             or body_json.get("user_email")
@@ -146,10 +289,8 @@ def queue_enqueue():
         if user_email:
             body_json["user_email"] = user_email
 
-        # Re-serialize the corrected body
         raw_body = json.dumps(body_json)
 
-        # Build event for worker
         event = {
             "path": "/content/generate",
             "httpMethod": "POST",
@@ -160,13 +301,11 @@ def queue_enqueue():
             "user_email": user_email,
         }
 
-        # Enqueue the job
         job_id = enqueue_job(event, job_type="CONTENT_GENERATE")
         mark_queued(job_id, {"event": "content/generate", "username": username})
 
         logger.info(f"✅ Job {job_id} enqueued successfully for user '{username}'")
 
-        # Send queued email notification
         try:
             if user_email:
                 position = max(get_queue_depth(), 1)
@@ -176,7 +315,6 @@ def queue_enqueue():
         except Exception as e:
             logger.warning(f"Could not send queued notification: {e}")
 
-        # Response - Flask-CORS will add headers automatically
         queue_depth = max(get_queue_depth(), 1)
         return jsonify({
             "job_id": job_id,
@@ -193,13 +331,9 @@ def queue_enqueue():
 
 @app.route('/queue/status/<job_id>', methods=['GET', 'OPTIONS'])
 def queue_status(job_id):
-    """
-    Get job status by job_id.
-    """
-    # ✅ Let Flask-CORS handle OPTIONS automatically
     if request.method == 'OPTIONS':
         return '', 204
-    
+
     try:
         item = get_status(job_id)
         if not item:
@@ -211,7 +345,6 @@ def queue_status(job_id):
                 return float(obj)
             raise TypeError
 
-        # Flask-CORS will add headers automatically
         return jsonify(json.loads(json.dumps(item, default=decimal_default)))
 
     except Exception as e:
@@ -222,7 +355,6 @@ def queue_status(job_id):
 
 @app.route('/trigger-scheduler', methods=["POST"])
 def trigger_scheduler():
-    """Manually trigger the scheduler."""
     try:
         if scheduler_available:
             scheduler_task()
@@ -233,55 +365,21 @@ def trigger_scheduler():
         logger.error(f"Error triggering scheduler: {e}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/linkedin/callback', methods=["POST"])
-def linkedin_callback():
-    """LinkedIn OAuth callback."""
-    try:
-        data = request.json
-        code = data.get("code")
-        if not code:
-            return jsonify({"error": "No authorization code provided"}), 400
+# ❌ Your old /linkedin/callback (POST) is NOT used by popup OAuth flow.
+# You can keep it if something else calls it, but it won't fix popup.
+# If you want, you can delete it safely.
+# -------------------------------------------------------
+# @app.route('/linkedin/callback', methods=["POST"])
+# def linkedin_callback():
+#     ...
 
-        token_resp = requests.post(
-            "https://www.linkedin.com/oauth/v2/accessToken",
-            data={
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": REDIRECT_URI,
-                "client_id": CLIENT_ID,
-                "client_secret": CLIENT_SECRET
-            },
-            headers={"Content-Type": "application/x-www-form-urlencoded"}
-        )
-        token_resp.raise_for_status()
-        access_token = token_resp.json()["access_token"]
-
-        profile_resp = requests.get(
-            "https://api.linkedin.com/v2/me",
-            headers={"Authorization": f"Bearer {access_token}"}
-        )
-        profile_data = profile_resp.json()
-        person_id = profile_data.get("id")
-
-        if not person_id:
-            return jsonify({"error": "Failed to get person ID"}), 400
-
-        person_urn = f"urn:li:person:{person_id}"
-
-        return jsonify({"access_token": access_token, "person_urn": person_urn})
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
+# ================== CATCH-ALL (lambda routing) ==================
+# IMPORTANT: must be AFTER /social/linkedin/callback route
 @app.route('/<path:path>', methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 def handle_request(path):
-    """
-    Handle all other requests via lambda_handler.
-    """
-    # ✅ Let Flask-CORS handle OPTIONS automatically
     if request.method == 'OPTIONS':
         return '', 204
-    
+
     event = {
         "path": f"/{path}",
         "httpMethod": request.method,
@@ -301,29 +399,26 @@ def handle_request(path):
         return flask_response
 
     # Handle JSON responses
-    if isinstance(response["body"], str) and response["body"].strip():
+    if isinstance(response.get("body"), str) and response["body"].strip():
         try:
             response_body = json.loads(response["body"])
         except json.JSONDecodeError:
             logger.warning(f"Failed to parse JSON response body: {response['body'][:100]}")
             response_body = {"message": response["body"]}
     else:
-        response_body = response["body"] if response["body"] is not None else {}
+        response_body = response.get("body") if response.get("body") is not None else {}
 
-    # Flask-CORS adds headers automatically
     return jsonify(response_body), response["statusCode"]
 
 # ================== WORKER & SCHEDULER STARTUP ==================
 
 def start_worker_background():
-    """Start the SQS worker in a background thread."""
     t = threading.Thread(target=start_worker_loop, daemon=True, name="QWorkerThread")
     t.start()
     logger.info("🚀 SQS Worker thread started")
     return t
 
 def start_scheduler_safe():
-    """Start scheduler in background if available."""
     if scheduler_available:
         logger.info("📅 Starting scheduler in background thread...")
         try:
@@ -338,20 +433,17 @@ if __name__ == "__main__":
     logger.info("=" * 60)
     logger.info("🚀 Starting Marketing Bot Server")
     logger.info("=" * 60)
-    
-    # Start worker thread
+
     start_worker_background()
-    
-    # Start scheduler thread
+
     if scheduler_available:
         threading.Thread(target=start_scheduler_safe, daemon=True).start()
         logger.info("📅 Scheduler thread started")
     else:
         logger.warning("⚠️ No scheduler available")
-    
+
     logger.info("=" * 60)
     logger.info("✅ Server ready on http://0.0.0.0:5000")
     logger.info("=" * 60)
-    
-    # Start Flask app (debug=False for production)
+
     app.run(host="0.0.0.0", port=5000, debug=False)

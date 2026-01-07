@@ -1,5 +1,3 @@
-
-
 from __future__ import annotations
 
 import os
@@ -230,7 +228,7 @@ class ChromeProfileManager:
 
 
 class ImageGenerator:
-    """Ultra-robust image generator with aggressive feedback retry and circuit breakers"""
+    """Ultra-robust image generator with enhanced feedback loop"""
     
     def __init__(self):
         self.max_iterations = int(os.getenv("IMG_MAX_ITERS", "6"))
@@ -247,22 +245,22 @@ class ImageGenerator:
         self.accumulated_feedback: List[str] = []
         self.last_pdf_url: Optional[str] = None
         
-        # ✅ OPTIMIZED TIMING - Faster but still reliable
-        self.GENERATION_TIMEOUT = 300  # 5 minutes per attempt (was 10)
-        self.POLL_INTERVAL = 1.0  # Check every 1 second for faster detection (was 2)
-        self.POST_GENERATION_WAIT = 3  # Wait 3s after detecting image (was 5)
-        self.PRE_FEEDBACK_WAIT = 5  # Wait 5s before sending feedback (was 8)
-        self.FEEDBACK_RESPONSE_WAIT = 30  # Wait 30s for feedback response (was 20)
-        self.PROGRESS_LOG_INTERVAL = 10  # Log progress every 10 seconds (was 15)
+        # Optimized timing
+        self.GENERATION_TIMEOUT = 300  # 5 minutes per attempt
+        self.POLL_INTERVAL = 1.0  # Check every 1 second
+        self.POST_GENERATION_WAIT = 3  # Wait 3s after detecting image
+        self.PRE_FEEDBACK_WAIT = 5  # Wait 5s before sending feedback
+        self.FEEDBACK_RESPONSE_WAIT = 30  # Wait 30s for feedback response
+        self.PROGRESS_LOG_INTERVAL = 10  # Log progress every 10 seconds
         self.IMAGE_TIMEOUT = 12 * 60  # 12 minutes max per image
-        self.ITERATION_CLEANUP_DELAY = 2  # Wait 2s between iterations to ensure clean state
+        self.ITERATION_CLEANUP_DELAY = 2  # Wait 2s between iterations
         
         # Track which submission method works
         self.preferred_submit_method: Optional[str] = None
         
-        # ✅ Circuit breaker configuration
-        self.max_consecutive_failures = 2  # Max failures before aborting slide
-        self.max_feedback_failures = 3  # Max feedback failures before aborting
+        # Circuit breaker configuration
+        self.max_consecutive_failures = 2
+        self.max_feedback_failures = 3
 
     def parse_dynamodb_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
         parsed = {}
@@ -364,16 +362,13 @@ class ImageGenerator:
             logging.error(f"❌ Failed to load content details: {e}")
             return None
 
-    # ✅ NEW: Browser health check
     def check_browser_health(self, driver) -> bool:
         """Verify browser is still responsive and on ChatGPT"""
         try:
-            # Try to execute simple JS
             state = driver.execute_script("return document.readyState")
             if state != "complete":
                 logging.warning("⚠️ Page not fully loaded")
             
-            # Check if still on ChatGPT
             current_url = driver.current_url
             if "chatgpt.com" not in current_url:
                 logging.error(f"❌ Browser navigated away: {current_url}")
@@ -384,22 +379,18 @@ class ImageGenerator:
             logging.error(f"❌ Browser not responsive: {e}")
             return False
 
-    # ✅ NEW: Clean browser state between iterations
     def clean_browser_state(self, driver) -> bool:
         """Ensure browser is in clean state for next iteration"""
         try:
             logging.info("   🧹 Cleaning browser state...")
             
-            # Dismiss any popups/overlays
             _dismiss_overlays(driver)
             
-            # Scroll to bottom to ensure we're at latest messages
             try:
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             except:
                 pass
             
-            # Small delay to let UI settle
             time.sleep(self.ITERATION_CLEANUP_DELAY)
             
             logging.info("   ✅ Browser state cleaned")
@@ -420,11 +411,9 @@ class ImageGenerator:
         profile = business_profile
         size = self.get_size_for_image(idx, 1)
         
-        # Get approach
         photo_vs_illustration = spec.get("photography_vs_illustration", {})
         approach = photo_vs_illustration.get(profile.get("business_type", "default"), "mixed_50_50")
         
-        # Build prompt with proper formatting
         prompt_lines = [
             f"Generate a {size} Instagram carousel image for slide #{idx}.",
             "",
@@ -446,7 +435,6 @@ class ImageGenerator:
             "",
         ]
         
-        # Add photography/illustration requirements
         prompt_lines.append("=" * 60)
         if "photo_100" in approach or "dslr_required" in profile.get('visual_approach', ''):
             prompt_lines.extend([
@@ -479,7 +467,6 @@ class ImageGenerator:
                 "",
             ])
         
-        # Visual elements
         visual_elements = spec.get('visual_elements', {}).get(
             profile.get('business_type', 'default'),
             spec.get('visual_elements', {}).get('default', ['text overlay', 'clean background', 'focal point'])
@@ -496,7 +483,6 @@ class ImageGenerator:
             "",
         ])
         
-        # Brand colors
         colors = visual_prefs.get("colors", [])
         if colors:
             prompt_lines.extend([
@@ -508,7 +494,6 @@ class ImageGenerator:
                 "",
             ])
         
-        # Visual hint
         visual_hint = subtopic.get('visual_hint', '')
         if visual_hint:
             prompt_lines.extend([
@@ -519,7 +504,6 @@ class ImageGenerator:
                 "",
             ])
         
-        # Anti-AI tactics
         anti_ai_tactics = spec.get('anti_ai_emphasis', [])
         profile_anti_ai = profile.get('anti_ai_tactics', [])
         
@@ -540,7 +524,6 @@ class ImageGenerator:
             "",
         ])
         
-        # Quality standards
         prompt_lines.extend([
             "=" * 60,
             "QUALITY STANDARDS:",
@@ -553,7 +536,6 @@ class ImageGenerator:
             "",
         ])
         
-        # Avoid/prefer lists
         avoid_list = profile.get('avoid', [])
         if avoid_list:
             prompt_lines.extend([
@@ -583,12 +565,271 @@ class ImageGenerator:
         
         return prompt
 
-    # ✅ FIXED: Validates new message appeared
-    def request_comprehensive_feedback(self, driver, template_spec: Dict, business_profile: Dict, slide_structure_type: str, attempt_number: int) -> Tuple[Dict[str, int], List[str]]:
-        """Request multi-dimensional feedback with business context - VALIDATES response"""
+    def _is_generated_image_url(self, src: str) -> bool:
+        """Helper to identify generated image URLs"""
+        if not src:
+            return False
+        
+        # ChatGPT backend API
+        if "backend-api/estuary/content" in src or "backend-api%2Festuary%2Fcontent" in src:
+            has_file_id = "id=file_" in src or "id%3Dfile_" in src
+            has_signature = "sig=" in src or "sig%3D" in src or "&amp;sig=" in src
+            return has_file_id and has_signature
+        
+        # Blob URLs
+        if "blob:" in src:
+            return True
+        
+        # Data URLs (substantial size)
+        if src.startswith("data:image") and len(src) > 10000:
+            return True
+        
+        # DALL-E URLs
+        if "oaidalleapiprodscus" in src or "dalle" in src.lower():
+            return True
+        
+        return False
+
+    def wait_for_real_image(self, driver) -> Tuple[bool, Optional[str]]:
+        """
+        ENHANCED: Returns both success status AND image source URL
+        """
+        logging.info("⏳ Waiting for image generation...")
+        
+        time.sleep(1.5)
+        
+        try:
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(0.5)
+        except:
+            pass
+        
+        start_time = time.time()
+        last_log_time = start_time
+        
+        # Capture CURRENT state
+        initial_img_srcs = set()
+        initial_message_count = 0
+        try:
+            imgs = driver.find_elements(By.TAG_NAME, "img")
+            for img in imgs:
+                src = img.get_attribute("src")
+                if src:
+                    initial_img_srcs.add(src)
+            initial_message_count = len(driver.find_elements(By.XPATH, "//div[@data-message-author-role='assistant']"))
+            logging.info(f"   📊 Baseline: {len(initial_img_srcs)} images, {initial_message_count} messages")
+        except Exception as e:
+            logging.warning(f"   ⚠️ Could not capture baseline: {e}")
+        
+        # Quick check for instant images
+        try:
+            quick_check_imgs = driver.find_elements(By.TAG_NAME, "img")
+            for img in quick_check_imgs:
+                src = img.get_attribute("src")
+                if src and self._is_generated_image_url(src) and src not in initial_img_srcs:
+                    logging.info(f"   ⚡ Image already present! URL: {src[:120]}...")
+                    time.sleep(self.POST_GENERATION_WAIT)
+                    logging.info("✅ Image generation complete (instant)")
+                    return True, src
+        except Exception as e:
+            logging.debug(f"Quick check error: {e}")
+        
+        check_count = 0
+        last_detailed_log = start_time
+        
+        while time.time() - start_time < self.GENERATION_TIMEOUT:
+            check_count += 1
+            
+            if time.time() - last_log_time >= self.PROGRESS_LOG_INTERVAL:
+                elapsed = int(time.time() - start_time)
+                logging.info(f"   ⏱️  Still waiting... ({elapsed}s elapsed, check #{check_count})")
+                last_log_time = time.time()
+            
+            # Detailed IMG TAG inspection
+            if time.time() - last_detailed_log >= 15:
+                try:
+                    all_imgs = driver.find_elements(By.TAG_NAME, "img")
+                    new_imgs = []
+                    chatgpt_imgs = []
+                    
+                    logging.info(f"   🔍 SCANNING {len(all_imgs)} <img> TAGS:")
+                    
+                    for idx, img in enumerate(all_imgs):
+                        src = img.get_attribute("src")
+                        alt = img.get_attribute("alt")
+                        width = img.size.get('width', 0)
+                        height = img.size.get('height', 0)
+                        
+                        if src and src not in initial_img_srcs:
+                            new_imgs.append(src[:80])
+                            
+                            logging.info(f"      [{idx}] NEW IMG TAG:")
+                            logging.info(f"          src: {src[:100]}")
+                            logging.info(f"          alt: {alt}")
+                            logging.info(f"          size: {width}x{height}")
+                            
+                            if "backend-api" in src or "chatgpt.com" in src:
+                                chatgpt_imgs.append(src)
+                    
+                    if chatgpt_imgs:
+                        logging.info(f"   🎯 Found {len(chatgpt_imgs)} ChatGPT API images")
+                    else:
+                        logging.info(f"   ℹ️  No ChatGPT API images detected yet...")
+                        
+                except Exception as e:
+                    logging.debug(f"Detailed logging error: {e}")
+                last_detailed_log = time.time()
+            
+            try:
+                # Check for error messages
+                messages = driver.find_elements(By.XPATH, "//div[@data-message-author-role='assistant']")
+                current_message_count = len(messages)
+                
+                if current_message_count > initial_message_count:
+                    latest_message = messages[-1]
+                    latest_text = latest_message.text.lower()
+                    
+                    error_indicators = [
+                        "i apologize", "i can't", "i'm unable", "error generating",
+                        "something went wrong", "try again", "content policy"
+                    ]
+                    
+                    if any(err in latest_text for err in error_indicators):
+                        logging.error(f"❌ ChatGPT error detected: {latest_text[:150]}")
+                        return False, None
+                
+                # SCAN ALL IMG TAGS
+                imgs = driver.find_elements(By.TAG_NAME, "img")
+                
+                for img in imgs:
+                    try:
+                        src = img.get_attribute("src")
+                        if not src or src in initial_img_srcs:
+                            continue
+                        
+                        if self._is_generated_image_url(src):
+                            logging.info(f"   ✅ Found generated image in <img> tag!")
+                            logging.info(f"   🔗 URL: {src[:120]}...")
+                            
+                            width = img.size.get('width', 0)
+                            height = img.size.get('height', 0)
+                            
+                            if width > 100 and height > 100:
+                                logging.info(f"   📐 Size verified: {width}x{height}")
+                                time.sleep(self.POST_GENERATION_WAIT)
+                                
+                                try:
+                                    is_complete = driver.execute_script(
+                                        "return arguments[0].complete && arguments[0].naturalHeight > 0", 
+                                        img
+                                    )
+                                    if is_complete:
+                                        logging.info("   ✅ Image fully rendered")
+                                    else:
+                                        logging.info("   ⚠️ Image still rendering (continuing anyway)")
+                                except:
+                                    pass
+                                
+                                logging.info("✅ Image generation complete")
+                                return True, src
+                        
+                    except Exception as e:
+                        logging.debug(f"   Error checking img: {e}")
+                        continue
+                
+            except Exception as e:
+                logging.debug(f"   ⚠️ Check error: {e}")
+            
+            time.sleep(self.POLL_INTERVAL)
+        
+        logging.error(f"❌ Image timeout after {int(time.time() - start_time)}s")
+        return False, None
+
+    def _extract_scores_from_feedback(self, feedback_text: str) -> Dict[str, float]:
+        """Enhanced score extraction with multiple patterns"""
+        scores = {}
+        
+        patterns = [
+            (r"Overall.*?Quality.*?Score:?\s*(\d{1,2})\s*/\s*10", 'overall'),
+            (r"Template.*?Fit.*?Score:?\s*(\d{1,2})\s*/\s*10", 'template'),
+            (r"Business.*?(Fit|Appropriateness).*?Score:?\s*(\d{1,2})\s*/\s*10", 'business'),
+            (r"Anti-AI.*?Score:?\s*(\d{1,2})\s*/\s*10", 'anti_ai'),
+            (r"Composite.*?Score:?\s*(\d{1,2}(?:\.\d)?)\s*/\s*10", 'composite'),
+        ]
+        
+        for pattern, key in patterns:
+            match = re.search(pattern, feedback_text, re.IGNORECASE)
+            if match:
+                score_str = match.group(match.lastindex)
+                try:
+                    scores[key] = float(score_str)
+                except ValueError:
+                    pass
+        
+        if not scores.get('overall'):
+            match = re.search(r"(?:^|\n).*?Overall.*?(\d{1,2})\s*/\s*10", feedback_text, re.IGNORECASE | re.MULTILINE)
+            if match:
+                scores['overall'] = int(match.group(1))
+        
+        if 'composite' not in scores and len(scores) >= 3:
+            scores['composite'] = sum(scores.values()) / len(scores)
+        
+        return scores
+
+    def _extract_improvements_from_feedback(self, feedback_text: str) -> List[str]:
+        """Enhanced improvement extraction with better parsing"""
+        improvements = []
+        
+        improvement_keywords = [
+            "improve", "enhance", "fix", "adjust", "change", "add", "remove",
+            "should", "need", "must", "consider", "try",
+            "ai-generated", "fake", "unrealistic", "generic", "sterile",
+            "template", "business", "missing", "wrong", "issue", "problem"
+        ]
+        
+        lines = feedback_text.split("\n")
+        
+        in_improvement_section = False
+        for line in lines:
+            clean_line = line.strip()
+            
+            if any(header in clean_line.lower() for header in ["what's wrong", "how to fix", "improvements", "priority fixes", "issues", "problems", "detailed feedback"]):
+                in_improvement_section = True
+                continue
+            
+            if len(clean_line) < 20:
+                continue
+            
+            if "/10" in clean_line:
+                continue
+            
+            if any(keyword in clean_line.lower() for keyword in improvement_keywords) or in_improvement_section:
+                clean = re.sub(r'^[\d\.\-\*\•\>\-]+\s*', '', clean_line)
+                clean = clean.strip()
+                
+                if clean and len(clean) > 25:
+                    clean = re.sub(r'\d+/10', '', clean)
+                    improvements.append(clean)
+            
+            if clean_line.startswith("=") or clean_line.isupper():
+                in_improvement_section = False
+        
+        seen = set()
+        unique_improvements = []
+        for imp in improvements:
+            imp_lower = imp.lower()
+            if imp_lower not in seen:
+                seen.add(imp_lower)
+                unique_improvements.append(imp)
+        
+        return unique_improvements[:10]
+
+    def request_comprehensive_feedback(self, driver, template_spec: Dict, business_profile: Dict, slide_structure_type: str, attempt_number: int, image_src_url: Optional[str] = None) -> Tuple[Dict[str, int], List[str]]:
+        """
+        ENHANCED: Request feedback with EXPLICIT image reference
+        """
         logging.info(f"🤔 Requesting comprehensive feedback (Attempt #{attempt_number})...")
         
-        # ✅ Count messages BEFORE requesting feedback
         messages_before = len(driver.find_elements(By.XPATH, "//div[@data-message-author-role='assistant']"))
         logging.info(f"   📊 Messages before feedback: {messages_before}")
         
@@ -597,57 +838,115 @@ class ImageGenerator:
         criteria = template_spec.get('feedback_criteria', [])
         criteria_text = "\n".join([f"   • {c}" for c in criteria])
         
-        # Build feedback prompt
         feedback_lines = [
-            f"Evaluate the image you just generated. This is attempt #{attempt_number}.",
+            f"Look at the image you just generated above (attempt #{attempt_number}).",
             "",
+        ]
+        
+        if image_src_url:
+            feedback_lines.extend([
+                "⚠️ IMPORTANT: Evaluate the MOST RECENT image in this conversation.",
+                f"(The image source contains: {image_src_url[:50]}...)",
+                "",
+            ])
+        else:
+            feedback_lines.extend([
+                "⚠️ IMPORTANT: Evaluate the MOST RECENT image you generated.",
+                "Scroll up if needed to see it clearly.",
+                "",
+            ])
+        
+        feedback_lines.extend([
             "=" * 60,
             "CONTEXT:",
             "=" * 60,
             f"Business: {business_profile.get('business_type', 'general')}",
             f"Template: {template_spec.get('composition', 'visual layout')}",
             f"Slide Type: {slide_structure_type}",
+            f"Attempt Number: {attempt_number}",
             "",
             "=" * 60,
-            "EVALUATE ON 4 DIMENSIONS (score each 1-10):",
+            "YOUR TASK: EVALUATE ON 4 DIMENSIONS",
             "=" * 60,
             "",
-            "1. OVERALL QUALITY Score: X/10",
-            "   • Technical excellence (lighting, composition, resolution)",
+            "Score each dimension from 1-10 where:",
+            "• 1-3 = Poor/Unacceptable",
+            "• 4-6 = Needs improvement",
+            "• 7-8 = Good but not great",
+            "• 9-10 = Excellent/Professional",
+            "",
+            "DIMENSION 1: OVERALL QUALITY (Technical Excellence)",
+            "Score: __/10",
+            "Criteria:",
+            "   • Lighting quality (natural, well-balanced)",
+            "   • Composition (rule of thirds, visual hierarchy)",
+            "   • Resolution and sharpness",
+            "   • Color grading (professional, not oversaturated)",
             "   • Professional polish",
             "",
-            "2. TEMPLATE FIT Score: X/10",
-            criteria_text if criteria_text else "   • Matches template requirements",
+            "DIMENSION 2: TEMPLATE FIT (Structural Accuracy)",
+            "Score: __/10",
+            "Criteria:",
+            criteria_text if criteria_text else "   • Matches template layout requirements",
+            f"   • Follows {template_spec.get('composition', 'composition')} guidelines",
+            "   • Text placement is correct",
+            "   • Visual elements are in right positions",
             "",
-            "3. BUSINESS APPROPRIATENESS Score: X/10",
+            "DIMENSION 3: BUSINESS APPROPRIATENESS (Industry Fit)",
+            "Score: __/10",
+            "Criteria:",
             f"   • Matches {business_profile.get('tone', 'professional')} tone?",
-            f"   • Fits {business_profile.get('business_type', 'industry')} industry?",
+            f"   • Appropriate for {business_profile.get('business_type', 'industry')} industry?",
+            f"   • Visual style fits {business_profile.get('visual_approach', 'brand')}?",
+            "   • Colors and fonts match brand expectations?",
             "",
-            "4. ANTI-AI SUCCESS Score: X/10 (CRITICAL)",
+            "DIMENSION 4: ANTI-AI SUCCESS (Authenticity) ⚠️ CRITICAL",
+            "Score: __/10",
+            "Criteria:",
             "   • Does it look REAL, not AI-generated?",
-            "   • Natural imperfections that prove authenticity?",
+            "   • Has natural imperfections (asymmetry, texture variation)?",
+            "   • Lighting has realistic qualities (not perfect)?",
+            "   • Textures look authentic (not plastic/CGI)?",
+            "   • Environmental context feels genuine?",
+            "   • AVOID: Perfect symmetry, sterile look, uncanny valley",
             "",
             "=" * 60,
-            "FORMAT YOUR RESPONSE:",
+            "REQUIRED OUTPUT FORMAT:",
             "=" * 60,
+            "",
             "Overall Quality Score: X/10",
             "Template Fit Score: X/10",
             "Business Fit Score: X/10",
             "Anti-AI Score: X/10",
             "",
-            "COMPOSITE SCORE: (average of all 4) X/10",
+            "COMPOSITE SCORE: X.X/10 (average of all 4)",
             "",
-            "If ANY score is below 9, provide SPECIFIC improvements:",
-            "• What exactly needs to change?",
-            "• How to reach 9+ on all dimensions?",
+            "=" * 60,
+            "DETAILED FEEDBACK:",
+            "=" * 60,
             "",
-            "Be brutally honest and specific."
-        ]
+            "If ANY score is below 9, provide SPECIFIC, ACTIONABLE improvements:",
+            "",
+            "What's wrong:",
+            "• [Be specific about the problem]",
+            "",
+            "How to fix it:",
+            "• [Exact changes needed]",
+            "",
+            "Priority fixes (most important first):",
+            "1. [First fix]",
+            "2. [Second fix]",
+            "3. [Third fix]",
+            "",
+            "Be brutally honest. Don't sugarcoat. We need 9+/10 on ALL dimensions.",
+        ])
         
         feedback_prompt = "\n".join(feedback_lines)
         
         logging.info(f"\n{'─'*60}")
-        logging.info(f"📤 SUBMITTING FEEDBACK REQUEST PROMPT ({len(feedback_prompt)} chars)")
+        logging.info(f"📤 SUBMITTING DETAILED FEEDBACK REQUEST")
+        logging.info(f"   Prompt size: {len(feedback_prompt)} chars")
+        logging.info(f"   Image URL included: {'Yes' if image_src_url else 'No'}")
         logging.info(f"{'─'*60}")
         
         if not self.submit_prompt_robust(driver, feedback_prompt, max_retries=self.max_retries, prompt_type="FEEDBACK REQUEST"):
@@ -656,7 +955,6 @@ class ImageGenerator:
         
         logging.info(f"✅ Feedback prompt submitted, waiting for response...")
         
-        # ✅ Wait for NEW message with timeout
         max_wait = self.FEEDBACK_RESPONSE_WAIT
         start = time.time()
         new_message_appeared = False
@@ -664,7 +962,7 @@ class ImageGenerator:
         while time.time() - start < max_wait:
             current_messages = len(driver.find_elements(By.XPATH, "//div[@data-message-author-role='assistant']"))
             if current_messages > messages_before:
-                time.sleep(2)  # Let it fully render
+                time.sleep(2)
                 new_message_appeared = True
                 logging.info(f"   ✅ Feedback response received (total messages: {current_messages})")
                 break
@@ -680,135 +978,188 @@ class ImageGenerator:
                 logging.warning("⚠️ No feedback messages found")
                 return {}, []
             
-            feedback_text = "\n".join([m.text for m in messages[-2:] if m.text])
+            feedback_text = messages[-1].text
             logging.info(f"   📄 Feedback received: {len(feedback_text)} chars")
             
-            # ✅ Check for error indicators
+            logging.info(f"\n{'─'*60}")
+            logging.info(f"📝 FEEDBACK PREVIEW:")
+            logging.info(feedback_text[:300] + "..." if len(feedback_text) > 300 else feedback_text)
+            logging.info(f"{'─'*60}\n")
+            
             error_indicators = ["I apologize", "I can't", "I'm unable", "error", "something went wrong"]
             if any(err in feedback_text.lower() for err in error_indicators):
                 logging.warning(f"⚠️ Feedback contains error: {feedback_text[:200]}")
                 return {}, []
             
-            scores = {}
-            match = re.search(r"Overall.*?Quality.*?Score:?\s*(\d{1,2})\s*/\s*10", feedback_text, re.IGNORECASE)
-            if match:
-                scores['overall'] = int(match.group(1))
-            match = re.search(r"Template.*?Fit.*?Score:?\s*(\d{1,2})\s*/\s*10", feedback_text, re.IGNORECASE)
-            if match:
-                scores['template'] = int(match.group(1))
-            match = re.search(r"Business.*?(Fit|Appropriateness).*?Score:?\s*(\d{1,2})\s*/\s*10", feedback_text, re.IGNORECASE)
-            if match:
-                scores['business'] = int(match.group(2))
-            match = re.search(r"Anti-AI.*?Score:?\s*(\d{1,2})\s*/\s*10", feedback_text, re.IGNORECASE)
-            if match:
-                scores['anti_ai'] = int(match.group(1))
-            match = re.search(r"Composite.*?Score:?\s*(\d{1,2}(?:\.\d)?)\s*/\s*10", feedback_text, re.IGNORECASE)
-            if match:
-                scores['composite'] = float(match.group(1))
-            
-            if 'composite' not in scores and len(scores) >= 3:
-                scores['composite'] = sum(scores.values()) / len(scores)
+            scores = self._extract_scores_from_feedback(feedback_text)
+            improvements = self._extract_improvements_from_feedback(feedback_text)
             
             if scores:
-                logging.info(f"📊 SCORES:")
+                logging.info(f"\n{'─'*60}")
+                logging.info(f"📊 EXTRACTED SCORES:")
+                logging.info(f"{'─'*60}")
                 for dimension, score in scores.items():
-                    logging.info(f"   {dimension.capitalize()}: {score}/10")
+                    emoji = "✅" if score >= 9 else "⚠️" if score >= 7 else "❌"
+                    logging.info(f"   {emoji} {dimension.capitalize()}: {score}/10")
+                logging.info(f"{'─'*60}\n")
             else:
-                logging.warning("⚠️ Could not extract scores")
+                logging.warning("⚠️ Could not extract scores from feedback")
             
-            improvements = []
-            keywords = [
-                "improve", "enhance", "fix", "adjust", "change", "add", "remove",
-                "ai-generated", "fake", "unrealistic", "generic",
-                "template", "business", "missing",
-            ]
-            
-            for line in feedback_text.split("\n"):
-                clean_line = line.strip()
-                if any(k in clean_line.lower() for k in keywords):
-                    clean = re.sub(r'^[\d\.\-\*\•\-\>]+\s*', '', clean_line)
-                    if clean and len(clean) > 25:
-                        improvements.append(clean)
-            
-            if not improvements and scores.get('composite', 0) < 9:
-                if scores.get('overall', 10) < 9:
-                    improvements.append("Improve overall technical quality and polish")
-                if scores.get('template', 10) < 9:
-                    improvements.append(f"Better match template requirements")
-                if scores.get('business', 10) < 9:
-                    improvements.append(f"Make more appropriate for {business_profile.get('business_type', 'business')} industry")
-                if scores.get('anti_ai', 10) < 9:
-                    improvements.append("Add natural imperfections - real textures, asymmetry")
-            
-            logging.info(f"✅ Extracted {len(improvements)} improvements")
-            for imp in improvements[:3]:
-                logging.info(f"   • {imp[:80]}...")
+            if improvements:
+                logging.info(f"\n{'─'*60}")
+                logging.info(f"📝 EXTRACTED IMPROVEMENTS ({len(improvements)} total):")
+                logging.info(f"{'─'*60}")
+                for i, imp in enumerate(improvements[:5], 1):
+                    logging.info(f"   {i}. {imp[:100]}{'...' if len(imp) > 100 else ''}")
+                if len(improvements) > 5:
+                    logging.info(f"   ... and {len(improvements) - 5} more")
+                logging.info(f"{'─'*60}\n")
             
             return scores, improvements
             
         except Exception as e:
-            logging.error(f"❌ Error extracting feedback: {e}")
+            logging.error(f"❌ Error extracting feedback: {e}", exc_info=True)
             return {}, []
 
     def generate_improved_prompt(self, accumulated_feedback: List[str], scores_history: List[Dict], subtopic: Dict[str,str], template_spec: Dict, business_profile: Dict, slide_structure_type: str, theme: str, attempt: int) -> str:
-        """Generate improvement prompt with proper formatting"""
+        """
+        ENHANCED: Generate improvement prompt with DETAILED analysis
+        """
         
         if scores_history:
             last_scores = scores_history[-1]
-            weakest_dim = min(last_scores.items(), key=lambda x: x[1] if x[0] != 'composite' else 10)
-            weakest_name, weakest_score = weakest_dim
+            dimension_scores = {k: v for k, v in last_scores.items() if k != 'composite'}
+            
+            if dimension_scores:
+                weakest_dim, weakest_score = min(dimension_scores.items(), key=lambda x: x[1])
+            else:
+                weakest_dim, weakest_score = "overall", 0
         else:
-            weakest_name, weakest_score = "overall", 0
+            weakest_dim, weakest_score = "overall", 0
         
-        recent_feedback = "\n".join([f"• {fb}" for fb in accumulated_feedback[-5:]])
+        recent_feedback = accumulated_feedback[-8:]
         
         prompt_lines = [
-            f"REGENERATE with improvements (Attempt #{attempt}):",
+            f"REGENERATE the image with improvements (Attempt #{attempt}):",
+            "",
+            "⚠️ CRITICAL: This is an ITERATIVE REFINEMENT.",
+            "Build on the previous attempt - don't start from scratch.",
             "",
             "=" * 60,
-            "PREVIOUS SCORES:",
+            "PREVIOUS PERFORMANCE:",
             "=" * 60,
         ]
         
         if scores_history:
-            for i, score_set in enumerate(scores_history[-2:], start=max(1, len(scores_history)-1)):
-                score_line = f"Attempt {i}: Composite={score_set.get('composite', 0):.1f}/10"
-                prompt_lines.append(score_line)
+            for i, score_set in enumerate(scores_history[-3:], start=max(1, len(scores_history)-2)):
+                composite = score_set.get('composite', 0)
+                overall = score_set.get('overall', 0)
+                template = score_set.get('template', 0)
+                business = score_set.get('business', 0)
+                anti_ai = score_set.get('anti_ai', 0)
+                
+                status = "✅" if composite >= 9 else "⚠️" if composite >= 7 else "❌"
+                
+                prompt_lines.append(
+                    f"Attempt {i}: {status} Composite={composite:.1f}/10 "
+                    f"(Quality={overall}, Template={template}, Business={business}, Anti-AI={anti_ai})"
+                )
         
         prompt_lines.extend([
             "",
             "=" * 60,
-            f"WEAKEST: {weakest_name.upper()} ({weakest_score}/10)",
+            f"🎯 WEAKEST DIMENSION: {weakest_dim.upper().replace('_', '-')} ({weakest_score}/10)",
             "=" * 60,
+            f"This is your PRIMARY FOCUS for this regeneration.",
+            "",
+        ])
+        
+        dimension_focus = {
+            'overall': [
+                "Improve lighting quality (more natural, less artificial)",
+                "Enhance composition (better visual hierarchy, rule of thirds)",
+                "Increase sharpness and resolution",
+                "Better color grading (avoid oversaturation)",
+            ],
+            'template': [
+                f"Follow {template_spec.get('composition', 'template')} layout more precisely",
+                "Position text elements exactly as specified",
+                "Include all required visual elements",
+                f"Match {template_spec.get('layout_priority', 'layout')} structure",
+            ],
+            'business': [
+                f"Better match {business_profile.get('tone', 'professional')} tone",
+                f"More appropriate for {business_profile.get('business_type', 'industry')} industry",
+                f"Use {business_profile.get('visual_approach', 'brand')} visual approach",
+                "Align with brand expectations",
+            ],
+            'anti_ai': [
+                "Add MORE natural imperfections (asymmetry, texture variation)",
+                "Make lighting more realistic (not perfect studio lighting)",
+                "Include environmental context and depth cues",
+                "Show material authenticity (real textures, not CGI)",
+                "Add subtle randomness and organic qualities",
+            ],
+        }
+        
+        focus_fixes = dimension_focus.get(weakest_dim, [])
+        if focus_fixes:
+            prompt_lines.extend([
+                f"TO FIX {weakest_dim.upper()}:",
+            ])
+            for fix in focus_fixes:
+                prompt_lines.append(f"   • {fix}")
+            prompt_lines.append("")
+        
+        prompt_lines.extend([
+            "=" * 60,
+            "ALL FEEDBACK FROM PREVIOUS ATTEMPTS:",
+            "=" * 60,
+        ])
+        
+        if recent_feedback:
+            for i, fb in enumerate(recent_feedback, 1):
+                prompt_lines.append(f"{i}. {fb}")
+        else:
+            prompt_lines.append("(No specific feedback yet)")
+        
+        prompt_lines.extend([
             "",
             "=" * 60,
-            "CRITICAL FIXES:",
-            "=" * 60,
-            recent_feedback,
-            "",
-            "=" * 60,
-            "CONTEXT:",
+            "ORIGINAL CONTENT (DO NOT CHANGE):",
             "=" * 60,
             f"Business: {business_profile.get('business_type', 'general')}",
             f"Template: {template_spec.get('composition', 'layout')}",
+            f"Slide Type: {slide_structure_type}",
             f"Theme: {theme}",
-            f"Content: {subtopic.get('title', 'slide')}",
+            f"Title: {subtopic.get('title', 'content')}",
+            f"Details: {subtopic.get('details', '')}",
             "",
             "=" * 60,
-            "REQUIREMENTS:",
+            "YOUR TASK:",
             "=" * 60,
-            "APPLY ALL FIXES ABOVE.",
-            f"TARGET: 9+/10 on ALL dimensions, especially {weakest_name.upper()}.",
-            "Make it look REAL, professional, industry-appropriate.",
+            f"1. Keep the same CONTENT and THEME",
+            f"2. Apply ALL fixes above, especially for {weakest_dim.upper()}",
+            f"3. Target: 9+/10 on ALL dimensions",
+            f"4. Make it look REAL, professional, and industry-appropriate",
+            "",
+            "Focus on INCREMENTAL IMPROVEMENT, not radical redesign.",
+            "Fix the specific issues identified in the feedback.",
         ])
         
         prompt = "\n".join(prompt_lines)
-        logging.info(f"✅ Improvement prompt: {len(prompt)} chars, {prompt.count(chr(10)) + 1} lines")
+        
+        logging.info(f"\n{'═'*80}")
+        logging.info(f"✍️  IMPROVED PROMPT GENERATED:")
+        logging.info(f"   Total size: {len(prompt)} chars, {prompt.count(chr(10)) + 1} lines")
+        logging.info(f"   Primary focus: {weakest_dim.upper()} ({weakest_score}/10)")
+        logging.info(f"   Feedback points: {len(recent_feedback)}")
+        logging.info(f"{'═'*80}\n")
         
         return prompt
 
     def submit_prompt_robust(self, driver, prompt: str, max_retries: int = 3, prompt_type: str = "prompt") -> bool:
-        """Submit prompt with proper multi-line formatting - OPTIMIZED"""
+        """Submit prompt with proper multi-line formatting"""
         
         if not prompt or len(prompt) < 100:
             logging.error(f"❌ Prompt too short ({len(prompt)} chars)!")
@@ -839,7 +1190,6 @@ class ImageGenerator:
                 
                 time.sleep(0.3)
                 
-                # Try clipboard paste first (best for formatting)
                 submission_successful = False
                 try:
                     logging.info(f"      📋 Clipboard paste...")
@@ -872,7 +1222,6 @@ class ImageGenerator:
                 except Exception as e:
                     logging.warning(f"      ⚠️ Paste failed: {e}")
                 
-                # Fallback: line-by-line typing
                 if not submission_successful:
                     try:
                         logging.info(f"      ⌨️  Line-by-line typing...")
@@ -899,7 +1248,6 @@ class ImageGenerator:
                     logging.error(f"   ❌ Typing failed")
                     continue
                 
-                # Submit
                 time.sleep(0.5)
                 submitted = False
                 
@@ -939,256 +1287,12 @@ class ImageGenerator:
         logging.error("❌ All submit attempts failed")
         return False
 
-    # ✅ FIXED: Better detection + clean state capture
-    def wait_for_real_image(self, driver) -> bool:
-        """
-        ULTRA-ROBUST image detection with FRESH state capture each call
-        """
-        logging.info("⏳ Waiting for image generation...")
-        
-        # ✅ Small delay to let previous operations complete
-        time.sleep(1.5)
-        
-        # ✅ Scroll to bottom to ensure we see latest content
-        try:
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(0.5)
-        except:
-            pass
-        
-        start_time = time.time()
-        last_log_time = start_time
-        
-        # ✅ Capture CURRENT state RIGHT NOW (not stale from previous iteration)
-        initial_img_srcs = set()
-        initial_message_count = 0
-        try:
-            imgs = driver.find_elements(By.TAG_NAME, "img")
-            for img in imgs:
-                src = img.get_attribute("src")
-                if src:
-                    initial_img_srcs.add(src)
-            initial_message_count = len(driver.find_elements(By.XPATH, "//div[@data-message-author-role='assistant']"))
-            logging.info(f"   📊 Baseline: {len(initial_img_srcs)} images, {initial_message_count} messages")
-        except Exception as e:
-            logging.warning(f"   ⚠️ Could not capture baseline: {e}")
-        
-        # ✅ Do one immediate check in case image loaded super fast
-        try:
-            quick_check_imgs = driver.find_elements(By.TAG_NAME, "img")
-            for img in quick_check_imgs:
-                src = img.get_attribute("src")
-                if src and "backend-api/estuary/content" in src and src not in initial_img_srcs:
-                    if ("id=file_" in src or "id%3Dfile_" in src) and ("sig=" in src or "sig%3D" in src):
-                        logging.info(f"   ⚡ Image already present! URL: {src[:120]}...")
-                        time.sleep(self.POST_GENERATION_WAIT)
-                        logging.info("✅ Image generation complete (instant)")
-                        return True
-        except Exception as e:
-            logging.debug(f"Quick check error: {e}")
-        
-        check_count = 0
-        last_detailed_log = start_time
-        
-        while time.time() - start_time < self.GENERATION_TIMEOUT:
-            check_count += 1
-            
-            # Progress logging
-            if time.time() - last_log_time >= self.PROGRESS_LOG_INTERVAL:
-                elapsed = int(time.time() - start_time)
-                logging.info(f"   ⏱️  Still waiting... ({elapsed}s elapsed, check #{check_count})")
-                last_log_time = time.time()
-            
-            # Detailed logging every 15 seconds (more frequent for debugging)
-            if time.time() - last_detailed_log >= 15:
-                try:
-                    all_imgs = driver.find_elements(By.TAG_NAME, "img")
-                    new_imgs = []
-                    chatgpt_imgs = []
-                    
-                    for img in all_imgs:
-                        src = img.get_attribute("src")
-                        if src and src not in initial_img_srcs:
-                            new_imgs.append(src[:80])
-                            if "backend-api" in src or "chatgpt.com" in src:
-                                chatgpt_imgs.append(src)
-                    
-                    if new_imgs:
-                        logging.info(f"   🔍 New images detected ({len(new_imgs)}):")
-                        for src in new_imgs[:5]:
-                            logging.info(f"      • {src}...")
-                    
-                    if chatgpt_imgs:
-                        logging.info(f"   🎯 ChatGPT API images found: {len(chatgpt_imgs)}")
-                        for src in chatgpt_imgs:
-                            has_file = "id=file_" in src or "id%3Dfile_" in src
-                            has_sig = "sig=" in src or "sig%3D" in src or "&amp;sig=" in src
-                            logging.info(f"      🔗 URL check: file_id={has_file}, signature={has_sig}")
-                    else:
-                        logging.info(f"   ℹ️  No ChatGPT API images detected yet...")
-                        
-                except Exception as e:
-                    logging.debug(f"Detailed logging error: {e}")
-                last_detailed_log = time.time()
-            
-            try:
-                # ✅ Check for error messages first
-                messages = driver.find_elements(By.XPATH, "//div[@data-message-author-role='assistant']")
-                current_message_count = len(messages)
-                
-                if current_message_count > initial_message_count:
-                    latest_message = messages[-1]
-                    latest_text = latest_message.text.lower()
-                    
-                    error_indicators = [
-                        "i apologize",
-                        "i can't",
-                        "i'm unable",
-                        "error generating",
-                        "something went wrong",
-                        "try again",
-                        "content policy"
-                    ]
-                    
-                    if any(err in latest_text for err in error_indicators):
-                        logging.error(f"❌ ChatGPT error detected: {latest_text[:150]}")
-                        return False
-                
-                # ✅ Strategy 1: Look for backend-api/estuary/content URLs (CURRENT ChatGPT pattern)
-                # Check ALL images on page, not just in latest message
-                imgs = driver.find_elements(By.TAG_NAME, "img")
-                
-                logging.debug(f"   🔍 Checking {len(imgs)} total images...")
-                
-                for img in imgs:
-                    try:
-                        src = img.get_attribute("src")
-                        if not src:
-                            continue
-                            
-                        # Skip if we've seen this image before
-                        if src in initial_img_srcs:
-                            continue
-                        
-                        # Check for ChatGPT backend API pattern
-                        if "backend-api/estuary/content" in src or "backend-api%2Festuary%2Fcontent" in src:
-                            # Verify it has the required parameters (check both & and &amp; versions)
-                            has_file_id = "id=file_" in src or "id%3Dfile_" in src
-                            has_signature = "sig=" in src or "sig%3D" in src or "&amp;sig=" in src
-                            
-                            if has_file_id and has_signature:
-                                logging.info(f"   ✅ Found ChatGPT API image URL!")
-                                logging.info(f"   🔗 URL: {src[:120]}...")
-                                
-                                # Wait a bit for image to fully load
-                                logging.info(f"   ⏳ Waiting {self.POST_GENERATION_WAIT}s for image to render...")
-                                time.sleep(self.POST_GENERATION_WAIT)
-                                
-                                # Try to verify it loaded, but don't fail if we can't check
-                                try:
-                                    is_complete = driver.execute_script(
-                                        "return arguments[0].complete && arguments[0].naturalHeight > 0", 
-                                        img
-                                    )
-                                    if is_complete:
-                                        logging.info("   ✅ Image fully rendered and loaded")
-                                    else:
-                                        logging.info("   ⚠️ Image URL present but may still be rendering (continuing anyway)")
-                                except Exception as check_error:
-                                    logging.info(f"   ⚠️ Could not verify image load state: {check_error} (continuing anyway)")
-                                
-                                logging.info("✅ Image generation complete (ChatGPT API)")
-                                return True
-                    except Exception as e:
-                        logging.debug(f"   Error checking image: {e}")
-                        continue
-                
-                # Strategy 2: Look for blob URLs
-                for img in imgs:
-                    try:
-                        src = img.get_attribute("src")
-                        if src and "blob:" in src and src not in initial_img_srcs:
-                            logging.info(f"   ✅ Found blob: URL! Waiting {self.POST_GENERATION_WAIT}s...")
-                            time.sleep(self.POST_GENERATION_WAIT)
-                            logging.info("✅ Image generation complete (blob)")
-                            return True
-                    except:
-                        continue
-                
-                # Strategy 3: Look for data URLs
-                for img in imgs:
-                    try:
-                        src = img.get_attribute("src")
-                        if src and src.startswith("data:image") and len(src) > 10000:
-                            if src not in initial_img_srcs:
-                                logging.info(f"   ✅ Found data: URL! Waiting {self.POST_GENERATION_WAIT}s...")
-                                time.sleep(self.POST_GENERATION_WAIT)
-                                logging.info("✅ Image generation complete (data)")
-                                return True
-                    except:
-                        continue
-                
-                # Strategy 4: Look for DALL-E URLs
-                for img in imgs:
-                    try:
-                        src = img.get_attribute("src")
-                        if src and ("oaidalleapiprodscus" in src or "dalle" in src.lower()):
-                            if src not in initial_img_srcs:
-                                logging.info(f"   ✅ Found DALL-E URL! Waiting {self.POST_GENERATION_WAIT}s...")
-                                time.sleep(self.POST_GENERATION_WAIT)
-                                logging.info("✅ Image generation complete (DALL-E)")
-                                return True
-                    except:
-                        continue
-                
-                # Strategy 5: Look for ANY new substantial image in latest message
-                if messages and len(messages) > initial_message_count:
-                    latest_message = messages[-1]
-                    try:
-                        msg_imgs = latest_message.find_elements(By.TAG_NAME, "img")
-                        for img in msg_imgs:
-                            src = img.get_attribute("src")
-                            if src and src not in initial_img_srcs:
-                                # Check if it's an actual content image (not icon/avatar)
-                                try:
-                                    width = img.get_attribute("width") or img.size.get('width', 0)
-                                    height = img.get_attribute("height") or img.size.get('height', 0)
-                                    if isinstance(width, str):
-                                        width = int(width) if width.isdigit() else 0
-                                    if isinstance(height, str):
-                                        height = int(height) if height.isdigit() else 0
-                                    
-                                    if width > 200 and height > 200:
-                                        logging.info(f"   ✅ Found new image ({width}x{height})! Waiting {self.POST_GENERATION_WAIT}s...")
-                                        time.sleep(self.POST_GENERATION_WAIT)
-                                        logging.info("✅ Image generation complete (new)")
-                                        return True
-                                except:
-                                    # Fallback: if URL looks substantial (long URL)
-                                    if len(src) > 100:
-                                        logging.info(f"   ✅ Found new image! Waiting {self.POST_GENERATION_WAIT}s...")
-                                        time.sleep(self.POST_GENERATION_WAIT)
-                                        logging.info("✅ Image generation complete (new)")
-                                        return True
-                    except:
-                        pass
-                
-            except Exception as e:
-                logging.debug(f"   ⚠️ Check error: {e}")
-            
-            time.sleep(self.POLL_INTERVAL)
-        
-        logging.error(f"❌ Image timeout after {int(time.time() - start_time)}s")
-        return False
-
     def download_image(self, driver, img_element=None) -> Optional[bytes]:
         """Download image - tries multiple methods"""
         try:
             if img_element is None:
-                # ✅ NEW: Look for the image we just detected (backend-api URL)
                 logging.info("   🔍 Finding the generated image...")
                 
-                # Try to find ChatGPT backend API images first
                 imgs = driver.find_elements(By.TAG_NAME, "img")
                 chatgpt_images = []
                 chatgpt_images_maybe = []
@@ -1197,12 +1301,10 @@ class ImageGenerator:
                     try:
                         src = img.get_attribute("src")
                         if src and ("backend-api/estuary/content" in src or "backend-api%2Festuary%2Fcontent" in src):
-                            # Verify it has required parameters
                             has_file_id = "id=file_" in src or "id%3Dfile_" in src
                             has_signature = "sig=" in src or "sig%3D" in src or "&amp;sig=" in src
                             
                             if has_file_id and has_signature:
-                                # Try to verify it's loaded
                                 try:
                                     is_complete = driver.execute_script(
                                         "return arguments[0].complete && arguments[0].naturalHeight > 0", 
@@ -1211,26 +1313,21 @@ class ImageGenerator:
                                     if is_complete:
                                         chatgpt_images.append(img)
                                     else:
-                                        # Image URL exists but may still be loading - keep as backup
                                         chatgpt_images_maybe.append(img)
                                 except:
-                                    # Can't verify - keep as backup
                                     chatgpt_images_maybe.append(img)
                     except:
                         continue
                 
-                # Use fully loaded images first, then unverified ones
                 all_candidates = chatgpt_images + chatgpt_images_maybe
                 
                 if all_candidates:
-                    # Get the most recent one (last in list)
                     img_element = all_candidates[-1]
                     if img_element in chatgpt_images:
                         logging.info(f"   ✅ Found fully loaded ChatGPT API image ({len(all_candidates)} total)")
                     else:
                         logging.info(f"   ✅ Found ChatGPT API image (load state unverified, {len(all_candidates)} total)")
                 else:
-                    # Fallback: look for assistant messages
                     logging.info("   🔍 Fallback: Looking in assistant messages...")
                     assistant_messages = driver.find_elements(By.XPATH, "//div[@data-message-author-role='assistant']")
                     if not assistant_messages:
@@ -1243,7 +1340,6 @@ class ImageGenerator:
                         logging.error("   ❌ No images in latest message")
                         return None
                     
-                    # Find largest image (likely the generated one, not icons)
                     img_element = max(imgs, key=lambda img: (img.size.get('width', 0) * img.size.get('height', 0)))
             
             src = img_element.get_attribute("src")
@@ -1253,11 +1349,9 @@ class ImageGenerator:
             
             logging.info(f"   📥 Downloading image from: {src[:100]}...")
             
-            # Method 1: ChatGPT backend-api/estuary/content URL
             if "backend-api/estuary/content" in src or "chatgpt.com" in src:
                 logging.info(f"   🔄 Using ChatGPT API fetch...")
                 try:
-                    # Use Selenium to fetch since it has auth cookies
                     script = """
                         return new Promise((resolve, reject) => {
                             fetch(arguments[0], {
@@ -1286,7 +1380,6 @@ class ImageGenerator:
                 except Exception as e:
                     logging.warning(f"   ⚠️ ChatGPT API fetch failed: {e}")
             
-            # Method 2: Blob URL - use JavaScript fetch
             if "blob:" in src:
                 script = """
                     return new Promise((resolve, reject) => {
@@ -1307,12 +1400,10 @@ class ImageGenerator:
                     base64_data = data_url.split(",", 1)[1]
                     return base64.b64decode(base64_data)
             
-            # Method 3: Data URL - direct extraction
             elif src.startswith("data:image"):
                 base64_data = src.split(",", 1)[1]
                 return base64.b64decode(base64_data)
             
-            # Method 4: Regular HTTPS URL - download with requests
             elif src.startswith("http"):
                 response = requests.get(src, timeout=30)
                 if response.status_code == 200:
@@ -1419,9 +1510,10 @@ class ImageGenerator:
         logging.info(f"Avg composite: {avg_composite:.2f}/10")
         logging.info(f"{'='*80}\n")
 
-    # ✅✅✅ MAIN GENERATION - LOOP FULLY FIXED ✅✅✅
     def generate_images(self, theme: str, content_type: str, num_images: int, subtopics: List[Dict[str,str]], user_id: Optional[str] = None, meme_mode: bool = False, create_pdf: bool = False, creative_overlay_level: int = 1) -> List[str]:
-        """Generate images with FIXED iteration loop - NO ERRORS"""
+        """
+        MAIN METHOD: Generate images with enhanced feedback loop
+        """
         
         logging.info(f"\n{'='*80}")
         logging.info(f"🚀 STARTING IMAGE GENERATION")
@@ -1439,17 +1531,13 @@ class ImageGenerator:
         driver = None
         
         try:
-            # Load configs
             content_details = self.load_content_details()
             
-            # ✅ SMART TEMPLATE SELECTION
             if content_details:
                 template_id = content_details.get("template_id", "listicle")
                 content_type_from_details = content_details.get("content_type", content_type)
                 
-                # ✅ If template_id is generic or missing, infer from content_type
                 if not template_id or template_id == "listicle":
-                    # Map content types to appropriate templates
                     content_type_to_template = {
                         "Informative": "how_to",
                         "Educational": "tutorial",
@@ -1462,7 +1550,6 @@ class ImageGenerator:
                         "Case Study": "case_study",
                     }
                     
-                    # Try to infer from content_type
                     inferred_template = content_type_to_template.get(
                         content_type_from_details, 
                         content_type_to_template.get(content_type, "listicle")
@@ -1476,7 +1563,6 @@ class ImageGenerator:
                 else:
                     logging.info(f"   📋 Using specified template '{template_id}'")
             else:
-                # No content details - try to infer from content_type
                 content_type_to_template = {
                     "Informative": "how_to",
                     "Educational": "tutorial", 
@@ -1504,7 +1590,6 @@ class ImageGenerator:
             slides = content_details.get("slides", {}) if content_details else {}
             subtopics = expand_subtopics(theme, num_images, subtopics or [])
             
-            # Initialize driver
             try:
                 from webdriver_manager.chrome import ChromeDriverManager
                 from selenium.webdriver.chrome.service import Service
@@ -1533,7 +1618,7 @@ class ImageGenerator:
             
             all_metrics = []
             
-            # ✅✅✅ GENERATE EACH IMAGE WITH FULLY FIXED LOOP ✅✅✅
+            # GENERATE EACH IMAGE
             for idx, sub in enumerate(subtopics[:num_images], start=1):
                 slide_key = f"slide_{idx}"
                 slide_data = slides.get(slide_key, {})
@@ -1545,18 +1630,15 @@ class ImageGenerator:
                 logging.info(f"🎨 IMAGE {idx}/{num_images}: {sub.get('title','')}")
                 logging.info(f"{'='*80}")
                 
-                # ✅ Per-image timeout
                 image_start_time = time.time()
                 
                 attempts = 0
                 self.accumulated_feedback = []
                 scores_history = []
                 
-                # ✅ Circuit breakers
                 consecutive_failures = 0
                 feedback_failures = 0
                 
-                # ✅ Generate initial prompt ONCE before loop
                 current_prompt = self.generate_initial_prompt(
                     sub, template_spec, business_profile, slide_structure_type, 
                     idx, theme, visual_prefs
@@ -1573,14 +1655,12 @@ class ImageGenerator:
                     "filename": f"images/{business_type}_{template_id}_{idx}_{uuid.uuid4().hex}.png"
                 }
                 
-                # ✅✅✅ ITERATION LOOP - FULLY PROTECTED & STATE-MANAGED ✅✅✅
+                # ITERATION LOOP
                 while attempts < self.max_iterations and best["composite_score"] < self.score_threshold:
-                    # ✅ 1. PER-IMAGE TIMEOUT CHECK
                     if time.time() - image_start_time > self.IMAGE_TIMEOUT:
                         logging.error(f"❌ Image #{idx} timeout ({self.IMAGE_TIMEOUT/60:.1f}min), using best result")
                         break
                     
-                    # ✅ 2. BROWSER HEALTH CHECK
                     if not self.check_browser_health(driver):
                         logging.error("❌ Browser unhealthy, aborting slide")
                         break
@@ -1590,7 +1670,7 @@ class ImageGenerator:
                     logging.info(f"🔄 ATTEMPT {attempts}/{self.max_iterations}")
                     logging.info(f"{'─'*80}")
                     
-                    # ✅ 3. SUBMIT IMAGE GENERATION PROMPT
+                    # STEP 1: Submit prompt
                     logging.info(f"📤 STEP 1: Submitting IMAGE GENERATION prompt...")
                     if not self.submit_prompt_robust(driver, current_prompt, max_retries=self.max_retries, prompt_type="IMAGE GENERATION"):
                         logging.error("❌ Submit failed")
@@ -1600,9 +1680,11 @@ class ImageGenerator:
                             break
                         continue
                     
-                    # ✅ 4. WAIT FOR IMAGE with fresh state capture each time
+                    # STEP 2: Wait for image (RETURNS URL NOW)
                     logging.info(f"⏳ STEP 2: Waiting for image to be generated...")
-                    if not self.wait_for_real_image(driver):
+                    image_detected, image_src_url = self.wait_for_real_image(driver)
+                    
+                    if not image_detected:
                         logging.warning(f"⚠️ Image generation failed/timeout")
                         consecutive_failures += 1
                         if consecutive_failures >= self.max_consecutive_failures:
@@ -1610,14 +1692,12 @@ class ImageGenerator:
                             break
                         continue
                     
-                    # ✅ Small delay to ensure DOM is fully updated
                     time.sleep(2)
                     
-                    # ✅ 5. DOWNLOAD IMAGE (with retry if needed)
+                    # STEP 3: Download
                     logging.info(f"💾 STEP 3: Downloading image...")
                     content = self.download_image(driver)
                     
-                    # If download failed, try one more time after a longer wait
                     if not content:
                         logging.warning("   ⚠️ First download attempt failed, waiting 3s and retrying...")
                         time.sleep(3)
@@ -1631,17 +1711,17 @@ class ImageGenerator:
                             break
                         continue
                     
-                    # ✅ SUCCESS - Reset failure counter
                     consecutive_failures = 0
                     logging.info(f"✅ Downloaded {len(content)/1024:.1f} KB")
                     
-                    # ✅ 6. REQUEST FEEDBACK (THIS SENDS THE FEEDBACK PROMPT)
+                    # STEP 4: Request feedback (WITH IMAGE URL)
                     logging.info(f"\n{'─'*40}")
-                    logging.info(f"📊 STEP 4: Requesting FEEDBACK (sending feedback prompt)...")
+                    logging.info(f"📊 STEP 4: Requesting DETAILED FEEDBACK...")
                     logging.info(f"{'─'*40}")
                     
                     scores, improvements = self.request_comprehensive_feedback(
-                        driver, template_spec, business_profile, slide_structure_type, attempts
+                        driver, template_spec, business_profile, slide_structure_type, 
+                        attempts, image_src_url  # ✅ Pass image URL
                     )
                     
                     if not scores:
@@ -1650,10 +1730,9 @@ class ImageGenerator:
                         if feedback_failures >= self.max_feedback_failures:
                             logging.error(f"❌ {feedback_failures} feedback failures, using best result")
                             break
-                        # Use default scores to continue
                         scores = {"composite": 6, "overall": 6, "template": 6, "business": 6, "anti_ai": 6}
                     else:
-                        feedback_failures = 0  # Reset on success
+                        feedback_failures = 0
                         logging.info(f"✅ FEEDBACK RECEIVED!")
                     
                     composite = scores.get("composite", sum(v for k,v in scores.items() if k != "composite") / max(len(scores)-1, 1))
@@ -1662,7 +1741,6 @@ class ImageGenerator:
                     
                     logging.info(f"📊 COMPOSITE: {composite:.1f}/10")
                     
-                    # Track best
                     if composite > best["composite_score"]:
                         best.update({
                             "composite_score": composite,
@@ -1671,28 +1749,24 @@ class ImageGenerator:
                         })
                         logging.info(f"🎯 New best: {composite:.1f}/10")
                     
-                    # Check if done
                     all_pass = all(v >= 9 for k, v in scores.items() if k != "composite")
                     if composite >= self.score_threshold and all_pass:
                         logging.info(f"🎉 THRESHOLD MET! Score: {composite:.1f}/10")
                         break
                     
-                    # Add feedback for next iteration
                     if improvements:
                         self.accumulated_feedback.extend(improvements)
                         logging.info(f"📝 Added {len(improvements)} improvement points")
                     
-                    # ✅ 7. PREPARE FOR NEXT ITERATION (if needed)
+                    # PREPARE FOR NEXT ITERATION
                     if attempts < self.max_iterations and composite < self.score_threshold:
                         logging.info(f"\n{'═'*80}")
                         logging.info(f"🔄 PREPARING FOR ATTEMPT {attempts + 1}/{self.max_iterations}")
                         logging.info(f"{'═'*80}")
                         
-                        # Clean browser state
                         self.clean_browser_state(driver)
                         
-                        # Generate improved prompt for NEXT iteration
-                        logging.info(f"✍️  Generating IMPROVED image generation prompt based on feedback...")
+                        logging.info(f"✍️  Generating IMPROVED prompt...")
                         current_prompt = self.generate_improved_prompt(
                             self.accumulated_feedback, scores_history, sub, 
                             template_spec, business_profile, slide_structure_type,
@@ -1701,11 +1775,11 @@ class ImageGenerator:
                         logging.info(f"✅ Improved prompt ready ({len(current_prompt)} chars)\n")
                     else:
                         if composite >= self.score_threshold:
-                            logging.info(f"✅ Score threshold reached, stopping iterations")
+                            logging.info(f"✅ Score threshold reached")
                         else:
-                            logging.info(f"✅ Max iterations reached, using best result")
+                            logging.info(f"✅ Max iterations reached")
                 
-                # Upload best image for this slide
+                # Upload best
                 if best["image"]:
                     logging.info(f"\n📤 Uploading...")
                     logging.info(f"   Score: {best['composite_score']:.1f}/10")
@@ -1729,11 +1803,9 @@ class ImageGenerator:
                 else:
                     logging.warning(f"⚠️ No image for slide {idx}")
             
-            # Metrics
             if all_metrics:
                 self.log_generation_metrics(template_id, business_type, all_metrics)
             
-            # PDF
             if create_pdf and image_urls:
                 self.last_pdf_url = self.create_pdf_from_s3_images(image_urls)
             

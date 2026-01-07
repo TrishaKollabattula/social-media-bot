@@ -85,11 +85,11 @@
     ],
     "status": [
       {
-        "path": "",
+        "path": "*",
         "request_method": "GET",
         "package": "queue_handler",
         "class": "QueueHandler",
-        "method": "status"
+        "method": "get_status"
       }
     ]
   },
