@@ -1,239 +1,748 @@
-# business_visual_profiles.py
-# Industry-specific visual identity profiles and anti-AI rules
+# image_generation/business_visual_profiles.py
+# Industry-specific visual identity profiles + anti-AI rules (AGENCY-GRADE)
+# ✅ Dynamic industry normalization + helper APIs for prompt builder
+# ✅ Stronger bans to prevent "AI poster" look
+# ✅ Typography-led, grid-based design defaults
+# ✅ Provides: get_visual_profile_key(), get_visual_profile(), build_anti_ai_block()
 
-BUSINESS_VISUAL_PROFILES = {
+from __future__ import annotations
+from typing import Dict, Any, List, Optional
+
+
+# -------------------------------------------------------------------
+# 1) CORE VISUAL PROFILES (UPDATED FOR AGENCY-GRADE OUTPUT)
+# -------------------------------------------------------------------
+BUSINESS_VISUAL_PROFILES: Dict[str, Dict[str, Any]] = {
+    # -------------------------
+    # EDTECH / EDUCATION
+    # -------------------------
     "edtech": {
-        "visual_approach": "illustration_preferred",
-        "photography_style": "bright_classroom_energy",
-        "color_psychology": "vibrant_optimistic",
-        "illustration_style": "modern_flat_friendly",
-        "tone": "encouraging_approachable",
-        "avoid": ["corporate_stiff", "dark_moody", "overly_polished"],
-        "prefer": ["hand_drawn_elements", "learning_icons", "student_focused"],
-        "composition": "energetic_dynamic",
+        "visual_approach": "typography_led_with_minimal_illustration",
+        "photography_style": "authentic_learning_environment_optional",
+        "color_psychology": "optimistic_trustworthy",
+        "illustration_style": "minimal_icon_system_clean",
+        "tone": "confident_clear_inspiring",
+        "avoid": [
+            "cartoonish_children_style",
+            "flashy_gradients",
+            "template_poster_vibes",
+            "random_ui_screens",
+            "overcrowded_elements",
+        ],
+        "prefer": [
+            "clean_grid_layout",
+            "strong_typography_hierarchy",
+            "minimal_icons",
+            "outcome_focused_copy",
+            "realistic_subtle_texture",
+        ],
+        "composition": "structured_modern_grid",
         "anti_ai_tactics": [
-            "Add subtle imperfections like hand-drawn elements",
-            "Use natural classroom/study settings",
-            "Include diverse, authentic student imagery",
-            "Avoid perfect symmetry, add organic layouts"
-        ]
+            "Use typography-led layout with strict grid alignment",
+            "Use minimal icons only (consistent style, same stroke weight)",
+            "Add subtle paper grain / soft noise to avoid plastic look",
+            "Avoid stock student collage; if humans used, keep ONE authentic scene only",
+            "Keep background mostly neutral with controlled brand accent",
+        ],
     },
+
+    # -------------------------
+    # E-COMMERCE / PRODUCT / RETAIL HERO
+    # -------------------------
     "ecommerce_product": {
-        "visual_approach": "dslr_photography_required",
-        "photography_style": "product_hero_shot",
-        "color_psychology": "clean_premium",
-        "illustration_style": "none",
-        "tone": "aspirational_desirable",
-        "avoid": ["illustrations", "cartoons", "abstract"],
-        "prefer": ["studio_lighting", "texture_detail", "lifestyle_context"],
-        "composition": "product_centered_balanced",
+        "visual_approach": "product_hero_photography_or_hyperreal_3d_if_needed",
+        "photography_style": "product_hero_shot_real_shadows",
+        "color_psychology": "clean_premium_desirable",
+        "illustration_style": "none_or_minimal_badges",
+        "tone": "premium_confident",
+        "avoid": [
+            "fake_stock_people_collage",
+            "random_charts",
+            "unrealistic_reflections",
+            "plastic_surfaces",
+            "over_shiny_gradients",
+            "busy_backgrounds",
+        ],
+        "prefer": [
+            "single_hero_product",
+            "realistic_material_texture",
+            "natural_shadow_falloff",
+            "controlled_light",
+            "minimal_offer_badges",
+        ],
+        "composition": "product_first_balanced_whitespace",
         "anti_ai_tactics": [
-            "DSLR bokeh with natural lens characteristics",
-            "Real shadows and reflections",
-            "Natural lighting imperfections",
-            "Authentic product textures and materials",
-            "Slight color variations (not perfect gradients)"
-        ]
+            "Realistic product texture (fabric grain, metal micro-scratches, glass reflections)",
+            "Natural studio lighting imperfections (soft hotspot + falloff)",
+            "Real shadows and grounded placement (no floating)",
+            "Avoid perfect gradients; prefer neutral base + subtle texture",
+            "Keep offer typography crisp and large enough for mobile",
+        ],
     },
+
+    # -------------------------
+    # SAAS / TECHNOLOGY
+    # -------------------------
     "technology_saas": {
-        "visual_approach": "mixed_illustration_and_photo",
-        "photography_style": "modern_workspace_tech",
+        "visual_approach": "typography_led_minimal_ui_motifs_optional",
+        "photography_style": "modern_workspace_optional_but_realistic",
         "color_psychology": "professional_innovative",
-        "illustration_style": "3d_isometric_clean",
-        "tone": "innovative_trustworthy",
-        "avoid": ["outdated_tech", "generic_stock_photos"],
-        "prefer": ["modern_ui_screenshots", "abstract_data_viz", "team_collaboration"],
-        "composition": "geometric_structured",
+        "illustration_style": "minimal_isometric_or_flat_icons_consistent",
+        "tone": "modern_trustworthy_enterprise",
+        "avoid": [
+            "generic_stock_photos",
+            "fake_dashboards_as_decoration",
+            "random_code_snippets",
+            "overly_complex_charts",
+            "neon_glow_everywhere",
+            "template_poster_style",
+        ],
+        "prefer": [
+            "clean_grid",
+            "strong_typography",
+            "minimal_shapes",
+            "one_clear_visual_anchor",
+            "subtle_depth_shadows",
+        ],
+        "composition": "geometric_structured_grid",
         "anti_ai_tactics": [
-            "Mix real UI elements with illustrations",
-            "Use authentic workspace photography",
-            "Include real code/data in visualizations",
-            "Natural screen glare and reflections"
-        ]
+            "If UI shown, keep it minimal + realistic (clean spacing, no nonsense graphs)",
+            "Use subtle screen glare / soft reflections (realistic)",
+            "Add slight texture/noise overlay to avoid sterile look",
+            "Avoid clutter. One hero element only.",
+            "Keep typography as main hero (agency-style layout).",
+        ],
     },
+
+    # -------------------------
+    # HEALTHCARE / MEDICAL
+    # -------------------------
     "healthcare_medical": {
-        "visual_approach": "photography_with_illustrations",
-        "photography_style": "professional_empathetic",
+        "visual_approach": "typography_led_with_clean_medical_icons",
+        "photography_style": "authentic_clinic_environment_optional",
         "color_psychology": "calm_trustworthy",
-        "illustration_style": "medical_anatomical_accurate",
+        "illustration_style": "medical_clean_iconography",
         "tone": "professional_caring",
-        "avoid": ["cartoonish", "overly_clinical_cold", "stock_doctor_photos"],
-        "prefer": ["authentic_patient_care", "medical_equipment_detail", "infographic_clarity"],
-        "composition": "balanced_informative",
+        "avoid": [
+            "stock_doctor_smile_pose",
+            "cartoonish_medical",
+            "overly_clinical_cold",
+            "random_abstract_shapes",
+            "template_poster_vibes",
+        ],
+        "prefer": [
+            "clean_spacing",
+            "minimal_icons",
+            "soft_realistic_light",
+            "humanity_and_trust",
+            "neutral_backgrounds",
+        ],
+        "composition": "balanced_informative_grid",
         "anti_ai_tactics": [
-            "Real medical equipment with natural wear",
-            "Authentic clinical environments",
-            "Natural lighting in healthcare settings",
-            "Genuine human connection moments"
-        ]
+            "Avoid stock-doctor clichés; if humans used, use ONE authentic candid clinic moment",
+            "Use realistic lighting, slight shadow softness like real clinic lighting",
+            "Use minimal medical icons (consistent style), not cartoon illustrations",
+            "Add subtle paper grain / soft noise to avoid plastic look",
+            "Keep composition calm, not busy",
+        ],
     },
+
+    # -------------------------
+    # FINANCE / BANKING / FINTECH
+    # -------------------------
     "finance_banking": {
-        "visual_approach": "mixed_photo_and_abstract",
-        "photography_style": "professional_trustworthy",
-        "color_psychology": "stable_secure",
-        "illustration_style": "abstract_data_driven",
+        "visual_approach": "typography_led_premium_minimal",
+        "photography_style": "professional_environment_optional",
+        "color_psychology": "secure_stable_premium",
+        "illustration_style": "minimal_secure_icons",
         "tone": "authoritative_reliable",
-        "avoid": ["playful_casual", "overly_complex_charts"],
-        "prefer": ["clean_data_visualization", "professional_handshakes", "secure_imagery"],
-        "composition": "structured_hierarchical",
+        "avoid": [
+            "candlestick_charts_as_decoration",
+            "random_growth_graphs",
+            "crypto_bro_neon",
+            "playful_casual",
+            "busy_visuals",
+            "template_poster_vibes",
+        ],
+        "prefer": [
+            "premium_typography",
+            "clean_numbers",
+            "simple_security_icons",
+            "deep_neutrals",
+            "subtle_gold_or_blue_accents",
+        ],
+        "composition": "structured_hierarchical_whitespace",
         "anti_ai_tactics": [
-            "Real financial data visualizations",
-            "Natural office environments",
-            "Authentic professional interactions",
-            "Subtle texture in graphics (paper, screen grain)"
-        ]
+            "No decorative candlesticks/graphs unless the brand is a trading platform",
+            "Use premium typography + minimal iconography (lock, shield, card, vault)",
+            "Add subtle texture (paper grain / soft noise) to avoid plastic look",
+            "Keep gradients extremely minimal (or none)",
+            "Focus on trust: clean layout, high contrast readability",
+        ],
     },
+
+    # -------------------------
+    # FOOD / BEVERAGE
+    # -------------------------
     "food_beverage": {
-        "visual_approach": "dslr_photography_required",
-        "photography_style": "food_styling_appetizing",
+        "visual_approach": "food_hero_photography_required",
+        "photography_style": "appetizing_food_styling_real_texture",
         "color_psychology": "warm_appetizing",
-        "illustration_style": "minimal_accents_only",
-        "tone": "indulgent_fresh",
-        "avoid": ["over_processed_look", "artificial_colors", "cartoon_food"],
-        "prefer": ["macro_detail", "steam_and_freshness", "natural_ingredients"],
-        "composition": "hero_shot_appetizing",
+        "illustration_style": "minimal_labels_only",
+        "tone": "fresh_indulgent",
+        "avoid": [
+            "over_processed_hdr_food",
+            "neon_food_colors",
+            "cartoon_food",
+            "messy_collage",
+            "fake_steam_everywhere",
+        ],
+        "prefer": [
+            "macro_detail",
+            "natural_light",
+            "real_surface_texture",
+            "simple_layout",
+            "menu_typography_clean",
+        ],
+        "composition": "hero_shot_with_clean_text_area",
         "anti_ai_tactics": [
-            "CRITICAL: Real food texture (crust, condensation, imperfections)",
-            "Natural lighting with soft shadows",
-            "Slight asymmetry in plating",
-            "Authentic garnish and steam effects",
-            "Real wood/ceramic surface textures"
-        ]
+            "CRITICAL: Real food texture (crumbs, pores, condensation, imperfections)",
+            "Natural light with soft shadows and falloff",
+            "Slight asymmetry in plating; avoid perfect symmetry",
+            "Use real table surface textures (wood, ceramic, stone)",
+            "Keep copy minimal and readable; no clutter",
+        ],
     },
+
+    # -------------------------
+    # REAL ESTATE
+    # -------------------------
     "real_estate": {
-        "visual_approach": "dslr_photography_required",
-        "photography_style": "architectural_lifestyle",
-        "color_psychology": "aspirational_warm",
-        "illustration_style": "floor_plans_only",
-        "tone": "aspirational_welcoming",
-        "avoid": ["overly_staged", "empty_cold_spaces"],
-        "prefer": ["natural_light_emphasis", "lifestyle_staging", "architectural_detail"],
-        "composition": "balanced_spacious",
+        "visual_approach": "architectural_photography_preferred",
+        "photography_style": "natural_light_lifestyle_real_interiors",
+        "color_psychology": "aspirational_warm_premium",
+        "illustration_style": "floorplan_only_if_needed",
+        "tone": "premium_welcoming",
+        "avoid": [
+            "empty_cold_showroom",
+            "overly_staged_unrealistic",
+            "fake_wide_angle_distortion",
+            "glossy_render_look",
+            "busy_icons_everywhere",
+        ],
+        "prefer": [
+            "natural_sunlight",
+            "real_materials",
+            "spacious_layout",
+            "minimal_icons",
+            "premium_typography",
+        ],
+        "composition": "spacious_balanced_grid",
         "anti_ai_tactics": [
-            "Real architectural photography techniques",
-            "Natural sunlight and shadows",
-            "Authentic interior styling imperfections",
-            "Real materials and textures (wood grain, fabric)",
-            "Natural perspective (not perfect symmetry)"
-        ]
+            "Use real material textures (wood grain, fabric weave) with imperfections",
+            "Natural sunlight + realistic shadows (not perfect symmetry)",
+            "Avoid sterile renders; keep it lived-in and premium",
+            "Keep icons minimal; prioritize layout and typography",
+            "Add subtle grain/noise for realism",
+        ],
     },
+
+    # -------------------------
+    # RETAIL / FASHION
+    # -------------------------
     "retail_fashion": {
-        "visual_approach": "dslr_photography_required",
-        "photography_style": "editorial_lifestyle",
-        "color_psychology": "trendy_aspirational",
+        "visual_approach": "editorial_product_or_lifestyle_photo",
+        "photography_style": "editorial_lifestyle_real_skin_texture",
+        "color_psychology": "trendy_premium",
         "illustration_style": "pattern_accents_only",
         "tone": "stylish_confident",
-        "avoid": ["catalog_boring", "generic_mannequins"],
-        "prefer": ["lifestyle_context", "fabric_texture_detail", "movement_dynamic"],
-        "composition": "editorial_dynamic",
+        "avoid": [
+            "catalog_boring",
+            "generic_mannequins",
+            "over_smooth_skin",
+            "plastic_fabric",
+            "random_background_collage",
+        ],
+        "prefer": [
+            "editorial_composition",
+            "real_fabric_texture",
+            "natural_wrinkles",
+            "premium_light",
+            "clean_offer_typography",
+        ],
+        "composition": "editorial_dynamic_clean",
         "anti_ai_tactics": [
-            "CRITICAL: Real fabric texture and drape",
-            "Natural movement and wrinkles",
-            "Authentic skin tones and textures",
-            "Real accessories and styling",
-            "Natural lighting with depth"
-        ]
+            "CRITICAL: Real fabric texture + drape (wrinkles, stitching)",
+            "Natural skin texture, avoid airbrushed plastic look",
+            "Use realistic lighting and depth (not flat HDR)",
+            "Avoid collage; use one hero visual only",
+            "Keep typography bold but clean; no gimmicks",
+        ],
     },
+
+    # -------------------------
+    # FITNESS / WELLNESS
+    # -------------------------
     "fitness_wellness": {
-        "visual_approach": "photography_with_motion",
-        "photography_style": "active_energetic",
+        "visual_approach": "typography_led_with_one_authentic_action_photo_optional",
+        "photography_style": "real_effort_authentic_movement",
         "color_psychology": "energetic_healthy",
-        "illustration_style": "anatomical_fitness_graphics",
-        "tone": "motivational_achievable",
-        "avoid": ["unrealistic_bodies", "overly_polished_gym"],
-        "prefer": ["real_workout_moments", "sweat_and_effort", "diverse_body_types"],
-        "composition": "dynamic_energetic",
+        "illustration_style": "minimal_fitness_icons",
+        "tone": "motivational_realistic",
+        "avoid": [
+            "unrealistic_bodies",
+            "cgi_muscles",
+            "overly_polished_gym_stock",
+            "neon_glow",
+            "busy_layouts",
+        ],
+        "prefer": [
+            "authentic_motion",
+            "real_sweat_texture",
+            "simple_layout",
+            "strong_typography",
+            "clean_badges_only",
+        ],
+        "composition": "dynamic_but_clean_grid",
         "anti_ai_tactics": [
-            "Real athletic movement blur",
-            "Authentic sweat and skin texture",
-            "Natural muscle definition (not CGI)",
-            "Real gym/outdoor environments with wear",
-            "Genuine effort expressions"
-        ]
+            "Use real movement cues (slight motion blur is okay)",
+            "Avoid unreal bodies; use believable proportions",
+            "Use clean typography-led layout with one hero photo max",
+            "Add subtle texture/noise overlay for realism",
+            "Keep composition uncluttered",
+        ],
     },
+
+    # -------------------------
+    # TRAVEL / HOSPITALITY
+    # -------------------------
     "travel_hospitality": {
-        "visual_approach": "dslr_photography_required",
-        "photography_style": "destination_experiential",
-        "color_psychology": "wanderlust_inviting",
-        "illustration_style": "map_accents_only",
-        "tone": "adventurous_welcoming",
-        "avoid": ["tourist_cliche", "overly_edited_skies"],
-        "prefer": ["golden_hour_natural", "local_culture_authentic", "experiential_moments"],
-        "composition": "expansive_immersive",
+        "visual_approach": "destination_photography_preferred",
+        "photography_style": "golden_hour_natural_atmosphere",
+        "color_psychology": "inviting_wanderlust",
+        "illustration_style": "map_pin_accents_only",
+        "tone": "welcoming_premium",
+        "avoid": [
+            "overly_edited_skies",
+            "tourist_cliche_collage",
+            "fake_hdr",
+            "too_many_icons",
+        ],
+        "prefer": [
+            "one_destination_hero",
+            "atmospheric_light",
+            "clean_typography",
+            "minimal_cta",
+            "subtle_grain",
+        ],
+        "composition": "expansive_with_text_safe_area",
         "anti_ai_tactics": [
-            "Real location photography with natural imperfections",
-            "Authentic cultural elements",
-            "Natural weather and lighting conditions",
-            "Real people experiencing destinations",
-            "Environmental texture and atmosphere"
-        ]
+            "Use natural lighting + atmosphere, avoid fake HDR",
+            "Keep it one hero scene, not collage",
+            "Add subtle film grain/noise for realism",
+            "Use clean typography with lots of whitespace",
+            "Avoid cliche tourist overlays",
+        ],
     },
+
+    # -------------------------
+    # MANUFACTURING / INDUSTRIAL
+    # -------------------------
     "manufacturing_industrial": {
-        "visual_approach": "photography_technical",
-        "photography_style": "industrial_detailed",
-        "color_psychology": "professional_powerful",
-        "illustration_style": "technical_diagrams",
-        "tone": "precise_capable",
-        "avoid": ["generic_factory_stock", "overly_clean_unrealistic"],
-        "prefer": ["machinery_detail", "process_in_action", "quality_focus"],
-        "composition": "technical_precise",
+        "visual_approach": "technical_photography_preferred",
+        "photography_style": "industrial_real_wear_detail",
+        "color_psychology": "capable_precise",
+        "illustration_style": "technical_diagrams_minimal",
+        "tone": "precise_professional",
+        "avoid": [
+            "generic_factory_stock",
+            "too_clean_unrealistic",
+            "random_icons",
+            "overly_polished",
+        ],
+        "prefer": [
+            "machinery_detail",
+            "real_environment_wear",
+            "controlled_typography",
+            "simple_layout",
+            "authentic_materials",
+        ],
+        "composition": "technical_grid_layout",
         "anti_ai_tactics": [
-            "Real industrial environments with authentic wear",
-            "Actual machinery with proper details",
-            "Natural workshop lighting",
-            "Real material textures (metal, oil, dust)",
-            "Authentic industrial processes"
-        ]
+            "Show authentic wear (oil marks, dust, scratches) in a realistic way",
+            "Use realistic workshop lighting with falloff",
+            "Avoid sterile clean factories; show real environment",
+            "Keep layout minimal, typography-led",
+            "Add subtle texture/noise for realism",
+        ],
     },
+
+    # -------------------------
+    # ENTERTAINMENT / MEDIA (still bold, but clean)
+    # -------------------------
     "entertainment_media": {
-        "visual_approach": "mixed_creative_bold",
-        "photography_style": "cinematic_dramatic",
-        "color_psychology": "bold_attention_grabbing",
-        "illustration_style": "stylized_artistic",
-        "tone": "exciting_engaging",
-        "avoid": ["generic_posters", "overused_effects"],
-        "prefer": ["dynamic_composition", "bold_typography", "emotional_impact"],
-        "composition": "cinematic_impactful",
+        "visual_approach": "cinematic_typography_led",
+        "photography_style": "cinematic_lighting_real_grain",
+        "color_psychology": "bold_but_controlled",
+        "illustration_style": "stylized_minimal",
+        "tone": "exciting_premium",
+        "avoid": [
+            "generic_movie_poster_collage",
+            "overused_glows",
+            "cheap_vfx_text",
+            "random_effects",
+        ],
+        "prefer": [
+            "cinematic_lighting",
+            "bold_clean_typography",
+            "one_hero_scene",
+            "film_grain",
+            "clean_composition",
+        ],
+        "composition": "cinematic_impactful_with_text_safe_area",
         "anti_ai_tactics": [
-            "Film grain and authentic camera effects",
-            "Real lighting setups (practical effects)",
-            "Natural color grading (not over-processed)",
-            "Authentic performance capture",
-            "Organic artistic elements"
-        ]
-    }
+            "Use film grain and realistic lighting falloff",
+            "Avoid collage posters; keep one hero moment only",
+            "Typography should be crisp and premium, not VFX cheesy",
+            "Avoid over-processed color grading",
+            "Add subtle texture overlays for realism",
+        ],
+    },
 }
 
-ANTI_AI_UNIVERSAL_RULES = {
+DEFAULT_PROFILE_KEY = "technology_saas"
+
+
+# -------------------------------------------------------------------
+# 1.1) PROFILE HARD BANS + PREFERENCES (extra guardrails)
+# -------------------------------------------------------------------
+PROFILE_HARD_BANS: Dict[str, List[str]] = {
+    "finance_banking": [
+        "NO decorative candlestick charts unless brand is trading platform",
+        "NO random growth graphs as background decoration",
+        "NO playful tone or meme-like styling",
+    ],
+    "technology_saas": [
+        "NO fake dashboards with nonsense UI",
+        "NO random code snippets as decoration",
+    ],
+    "healthcare_medical": [
+        "NO stock doctor handshake images",
+        "NO cartoon medical icons",
+    ],
+    "ecommerce_product": [
+        "NO product floating without shadow",
+        "NO plastic 3D surfaces",
+    ],
+}
+
+PROFILE_PREFERENCES: Dict[str, List[str]] = {
+    "finance_banking": [
+        "premium typography, minimal icons, deep neutrals, subtle texture",
+    ],
+    "technology_saas": [
+        "grid layout, typography-led, minimal UI motifs, subtle depth",
+    ],
+    "edtech": [
+        "clear outcomes, typography-led, minimal icon set, clean spacing",
+    ],
+}
+
+
+# -------------------------------------------------------------------
+# 2) UNIVERSAL ANTI-AI RULES (UPGRADED)
+# -------------------------------------------------------------------
+ANTI_AI_UNIVERSAL_RULES: Dict[str, List[str]] = {
     "always_include": [
-        "Natural imperfections: slight asymmetry, organic variation",
-        "Real-world physics: proper shadows, reflections, depth of field",
-        "Material authenticity: visible texture, grain, wear",
-        "Environmental context: natural lighting conditions, atmospheric effects",
-        "Human elements: authentic expressions, natural poses, real interactions"
+        "Typography realism: crisp kerning, consistent font system, clean alignment",
+        "Design realism: strict grid, generous whitespace, clear hierarchy",
+        "Material realism: subtle grain/texture (paper grain/soft noise), not plastic",
+        "Lighting realism: soft shadow falloff, grounded objects, real depth cues",
+        "Natural imperfections: slight asymmetry, organic variation, not perfect symmetry",
     ],
     "always_avoid": [
-        "Perfect symmetry and artificial balance",
-        "Overly smooth gradients and surfaces",
-        "Unnatural color saturation or HDR effects",
-        "Generic stock photo aesthetics",
-        "Sterile, overly-clean compositions",
+        "Warped, garbled, or unreadable text (FAIL if text is distorted)",
+        "Too many fonts (max 2 font families; no random type mixing)",
+        "Glossy gradient wallpaper / cheap poster sheen",
+        "Stock-collage compositions with multiple random people",
+        "Fake charts/candlesticks as decoration (unless truly relevant)",
+        "Over-saturated HDR look, neon glows everywhere",
         "Floating elements without proper shadows",
-        "Uncanny valley human features",
-        "Repetitive patterns without variation"
+        "Uncanny valley faces or plastic skin",
+        "Cluttered layouts: too many icons, too many shapes, too many badges",
     ],
     "photography_authenticity": [
-        "Add natural lens characteristics: slight vignetting, chromatic aberration",
-        "Include depth of field bokeh with natural lens behavior",
-        "Show natural lighting imperfections: hotspots, shadows, ambient bounce",
-        "Capture authentic moment-in-time feel (not posed/staged)",
-        "Include environmental context clues"
+        "Natural lens behavior: slight vignetting, mild chromatic aberration (subtle)",
+        "Real shadow softness and falloff (no hard cutout shadows)",
+        "Avoid AI-perfect lighting; allow natural hotspots and bounce light",
+        "Ground objects on surfaces with realistic contact shadows",
+        "Keep one hero photo only (avoid collage)",
     ],
     "illustration_authenticity": [
-        "Add hand-drawn imperfections: line weight variation, slight wobbles",
-        "Use organic color transitions (not perfect gradients)",
-        "Include texture overlays: paper grain, brush strokes",
-        "Vary element sizes and positions naturally",
-        "Add depth through overlapping and layering"
-    ]
+        "Consistent icon system (same stroke, same corner radius, same style)",
+        "Use subtle texture overlay to avoid flat vector plastic look",
+        "Avoid perfect gradients; prefer flat + subtle depth",
+        "Natural spacing and alignment (grid-based)",
+        "Minimal shapes that support the message (not decoration)",
+    ],
 }
+
+
+# -------------------------------------------------------------------
+# 3) FRONTEND + RAW TEXT -> PROFILE KEY NORMALIZATION (UPGRADED)
+# -------------------------------------------------------------------
+INDUSTRY_SYNONYM_MAP: Dict[str, str] = {
+    # EdTech / Education
+    "edtech": "edtech",
+    "ed tech": "edtech",
+    "education": "edtech",
+    "e-learning": "edtech",
+    "elearning": "edtech",
+    "coaching": "edtech",
+    "training": "edtech",
+    "academy": "edtech",
+    "institute": "edtech",
+
+    # SaaS / Tech
+    "saas": "technology_saas",
+    "software": "technology_saas",
+    "software as a service": "technology_saas",
+    "technology": "technology_saas",
+    "tech": "technology_saas",
+    "it": "technology_saas",
+    "ai": "technology_saas",
+    "platform": "technology_saas",
+    "app": "technology_saas",
+    "productivity": "technology_saas",
+    "crm": "technology_saas",
+
+    # Agency
+    "agency": "technology_saas",
+    "marketing agency": "technology_saas",
+    "digital agency": "technology_saas",
+    "creative agency": "technology_saas",
+    "branding agency": "technology_saas",
+    "ads": "technology_saas",
+
+    # D2C / Ecommerce / Retail product
+    "d2c": "ecommerce_product",
+    "d2c / e-commerce": "ecommerce_product",
+    "d2c / ecommerce": "ecommerce_product",
+    "d2c/e-commerce": "ecommerce_product",
+    "d2c/ecommerce": "ecommerce_product",
+    "e-commerce": "ecommerce_product",
+    "ecommerce": "ecommerce_product",
+    "e commerce": "ecommerce_product",
+    "retail": "ecommerce_product",
+    "product": "ecommerce_product",
+    "shop": "ecommerce_product",
+    "store": "ecommerce_product",
+
+    # Retail fashion
+    "fashion": "retail_fashion",
+    "boutique": "retail_fashion",
+    "clothing": "retail_fashion",
+    "apparel": "retail_fashion",
+    "beauty": "retail_fashion",
+    "cosmetics": "retail_fashion",
+    "salon": "retail_fashion",
+
+    # Real Estate
+    "real estate": "real_estate",
+    "realestate": "real_estate",
+    "property": "real_estate",
+    "builder": "real_estate",
+    "construction": "real_estate",
+    "interiors": "real_estate",
+    "architecture": "real_estate",
+
+    # Healthcare
+    "healthcare": "healthcare_medical",
+    "medical": "healthcare_medical",
+    "clinic": "healthcare_medical",
+    "hospital": "healthcare_medical",
+    "pharma": "healthcare_medical",
+    "dental": "healthcare_medical",
+    "optical": "healthcare_medical",
+    "diagnostic": "healthcare_medical",
+
+    # Finance
+    "finance": "finance_banking",
+    "banking": "finance_banking",
+    "fintech": "finance_banking",
+    "investment": "finance_banking",
+    "insurance": "finance_banking",
+    "loan": "finance_banking",
+    "mutual fund": "finance_banking",
+
+    # Restaurant / Cafe / Food
+    "restaurant": "food_beverage",
+    "cafe": "food_beverage",
+    "restaurant / cafe": "food_beverage",
+    "restaurant/cafe": "food_beverage",
+    "food": "food_beverage",
+    "beverage": "food_beverage",
+    "bakery": "food_beverage",
+
+    # Fitness
+    "fitness": "fitness_wellness",
+    "gym": "fitness_wellness",
+    "wellness": "fitness_wellness",
+    "yoga": "fitness_wellness",
+    "nutrition": "fitness_wellness",
+
+    # Travel
+    "travel": "travel_hospitality",
+    "hospitality": "travel_hospitality",
+    "hotel": "travel_hospitality",
+    "tourism": "travel_hospitality",
+    "resort": "travel_hospitality",
+
+    # Manufacturing
+    "manufacturing": "manufacturing_industrial",
+    "industrial": "manufacturing_industrial",
+    "factory": "manufacturing_industrial",
+    "engineering": "manufacturing_industrial",
+
+    # Entertainment
+    "entertainment": "entertainment_media",
+    "media": "entertainment_media",
+    "ott": "entertainment_media",
+    "studio": "entertainment_media",
+
+    # Consulting / Professional services (maps to SaaS style for premium B2B clean)
+    "consulting": "technology_saas",
+    "consultant": "technology_saas",
+    "law": "finance_banking",  # conservative premium style
+    "legal": "finance_banking",
+
+    # Other / Unknown
+    "other": DEFAULT_PROFILE_KEY,
+    "general": DEFAULT_PROFILE_KEY,
+}
+
+
+def _norm(s: Any) -> str:
+    return str(s).strip().lower() if s is not None else ""
+
+
+def get_visual_profile_key(business_type: Any) -> str:
+    """
+    Convert raw business_type (from DynamoDB / frontend) into a stable profile key.
+
+    Examples:
+      "EdTech" -> "edtech"
+      "D2C / E-commerce" -> "ecommerce_product"
+      "SaaS" -> "technology_saas"
+      "Real Estate" -> "real_estate"
+    """
+    raw = _norm(business_type)
+    if not raw:
+        return DEFAULT_PROFILE_KEY
+
+    # direct exact match in profiles
+    if raw in BUSINESS_VISUAL_PROFILES:
+        return raw
+
+    # exact synonym match
+    if raw in INDUSTRY_SYNONYM_MAP:
+        return INDUSTRY_SYNONYM_MAP[raw]
+
+    # contains-based fuzzy mapping
+    for key, mapped in INDUSTRY_SYNONYM_MAP.items():
+        if key and key in raw:
+            return mapped
+
+    return DEFAULT_PROFILE_KEY
+
+
+def get_visual_profile(business_type: Any) -> Dict[str, Any]:
+    """
+    Get the resolved profile dict for a business type.
+    Always returns a valid profile dict.
+    """
+    key = get_visual_profile_key(business_type)
+    return BUSINESS_VISUAL_PROFILES.get(key, BUSINESS_VISUAL_PROFILES[DEFAULT_PROFILE_KEY])
+
+
+# -------------------------------------------------------------------
+# 4) ANTI-AI BLOCK BUILDER (used inside business_prompt_builder.py)
+# -------------------------------------------------------------------
+def build_anti_ai_block(profile_key: str) -> str:
+    """
+    Build a structured anti-AI rules block for prompts.
+    """
+    pk = _norm(profile_key) or DEFAULT_PROFILE_KEY
+    profile = BUSINESS_VISUAL_PROFILES.get(pk, BUSINESS_VISUAL_PROFILES[DEFAULT_PROFILE_KEY])
+
+    lines: List[str] = []
+    lines.append("ANTI-AI AUTHENTICITY RULES")
+    lines.append("-" * 60)
+
+    # universal include/avoid
+    lines.append("✅ ALWAYS INCLUDE:")
+    for r in ANTI_AI_UNIVERSAL_RULES.get("always_include", []):
+        lines.append(f"  • {r}")
+
+    lines.append("")
+    lines.append("⛔ ALWAYS AVOID:")
+    for r in ANTI_AI_UNIVERSAL_RULES.get("always_avoid", []):
+        lines.append(f"  • {r}")
+
+    # photography vs illustration tips
+    visual_approach = _norm(profile.get("visual_approach"))
+    if "photo" in visual_approach or "photography" in visual_approach:
+        lines.append("")
+        lines.append("📷 PHOTOGRAPHY AUTHENTICITY:")
+        for r in ANTI_AI_UNIVERSAL_RULES.get("photography_authenticity", []):
+            lines.append(f"  • {r}")
+
+    if "illustration" in visual_approach or "icon" in visual_approach:
+        lines.append("")
+        lines.append("🖍️ ILLUSTRATION / ICON AUTHENTICITY:")
+        for r in ANTI_AI_UNIVERSAL_RULES.get("illustration_authenticity", []):
+            lines.append(f"  • {r}")
+
+    # industry tactics
+    tactics = profile.get("anti_ai_tactics", []) or []
+    if tactics:
+        lines.append("")
+        lines.append(f"🎯 INDUSTRY-SPECIFIC TACTICS ({pk}):")
+        for t in tactics:
+            lines.append(f"  • {t}")
+
+    # extra hard bans
+    hard_bans = PROFILE_HARD_BANS.get(pk, [])
+    if hard_bans:
+        lines.append("")
+        lines.append(f"🚫 HARD BANS ({pk}):")
+        for b in hard_bans:
+            lines.append(f"  • {b}")
+
+    prefs = PROFILE_PREFERENCES.get(pk, [])
+    if prefs:
+        lines.append("")
+        lines.append(f"✅ PREFERENCES ({pk}):")
+        for p in prefs:
+            lines.append(f"  • {p}")
+
+    lines.append("-" * 60)
+    return "\n".join(lines)
+
+
+# -------------------------------------------------------------------
+# 5) OPTIONAL: safe list of allowed frontend industry labels
+# -------------------------------------------------------------------
+def allowed_frontend_industries() -> List[str]:
+    return [
+        "EdTech",
+        "SaaS",
+        "Agency",
+        "D2C / E-commerce",
+        "Real Estate",
+        "Healthcare",
+        "Finance",
+        "Restaurant / Cafe",
+        "Fitness",
+        "Other",
+    ]

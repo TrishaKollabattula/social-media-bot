@@ -17,6 +17,7 @@ load_dotenv()
 
 AWS_REGION = os.getenv("AWS_REGION")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+HUBSPOT_API_URL = os.getenv("HUBSPOT_API_URL")  # HubSpot CRM API endpoint
 
 # Optional (only if you later want debug_token)
 INSTAGRAM_CLIENT_ID = os.getenv("INSTAGRAM_CLIENT_ID")
@@ -30,6 +31,71 @@ if not AWS_REGION or not S3_BUCKET_NAME:
 s3 = boto3.client("s3", region_name=AWS_REGION)
 dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
 social_tokens_table = dynamodb.Table("SocialTokens")
+
+
+def record_post_in_hubspot(user_id, platform, caption, post_id, post_url, media_urls):
+    """
+    Record the Instagram post in HubSpot CRM.
+    
+    Args:
+        user_id: User identifier
+        platform: "Instagram"
+        caption: Post caption text
+        post_id: Instagram media/container ID
+        post_url: Full Instagram post URL
+        media_urls: List of image URLs posted
+    """
+    if not HUBSPOT_API_URL:
+        logger.warning("⚠️ HUBSPOT_API_URL not configured, skipping CRM recording")
+        return
+    
+    try:
+        # Step 1: Create/update contact
+        contact_payload = {
+            "user_id": user_id,
+            "properties": {
+                "user_id": user_id
+            }
+        }
+        
+        contact_response = requests.post(
+            f"{HUBSPOT_API_URL}/crm/contact",
+            json=contact_payload,
+            timeout=10
+        )
+        
+        if contact_response.status_code != 200:
+            logger.error(f"❌ Failed to create/update HubSpot contact: {contact_response.text}")
+            return
+        
+        contact_id = contact_response.json().get("contact_id")
+        logger.info(f"✅ HubSpot contact created/updated: {contact_id}")
+        
+        # Step 2: Record post as Deal
+        post_payload = {
+            "contact_id": contact_id,
+            "platform": platform,
+            "caption": caption,
+            "post_urn": post_id,
+            "post_url": post_url,
+            "media_urls": media_urls if isinstance(media_urls, list) else [media_urls],
+            "status": "published"
+        }
+        
+        post_response = requests.post(
+            f"{HUBSPOT_API_URL}/crm/post",
+            json=post_payload,
+            timeout=10
+        )
+        
+        if post_response.status_code == 200:
+            deal_id = post_response.json().get("deal_id")
+            logger.info(f"✅ Post recorded in HubSpot CRM: Deal ID {deal_id}")
+        else:
+            logger.error(f"❌ Failed to record post in HubSpot: {post_response.text}")
+            
+    except Exception as e:
+        logger.error(f"❌ Error recording post in HubSpot: {str(e)}")
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
@@ -244,6 +310,17 @@ def post_carousel_to_instagram(user_id, image_urls=None, caption="", num_images=
                 "access_token": access_token,
             })
 
+            # ✅ Record in HubSpot CRM
+            instagram_post_url = f"https://www.instagram.com/p/{container_id}/"
+            record_post_in_hubspot(
+                user_id=user_id,
+                platform="Instagram",
+                caption=caption,
+                post_id=container_id,
+                post_url=instagram_post_url,
+                media_urls=valid_urls
+            )
+
             return {
                 "status": "success",
                 "platform": "instagram",
@@ -291,6 +368,17 @@ def post_carousel_to_instagram(user_id, image_urls=None, caption="", num_images=
             "creation_id": carousel_container_id,
             "access_token": access_token,
         })
+
+        # ✅ Record in HubSpot CRM
+        instagram_post_url = f"https://www.instagram.com/p/{carousel_container_id}/"
+        record_post_in_hubspot(
+            user_id=user_id,
+            platform="Instagram",
+            caption=caption,
+            post_id=carousel_container_id,
+            post_url=instagram_post_url,
+            media_urls=valid_urls
+        )
 
         return {
             "status": "success",

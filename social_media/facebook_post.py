@@ -15,6 +15,7 @@ AWS_REGION = os.getenv("AWS_REGION")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 FACEBOOK_PAGE_ID = os.getenv("FACEBOOK_PAGE_ID") or os.getenv("PAGE_ID")
 FACEBOOK_PAGE_ACCESS_TOKEN = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN") or os.getenv("PAGE_ACCESS_TOKEN")
+HUBSPOT_API_URL = os.getenv("HUBSPOT_API_URL")  # HubSpot CRM API endpoint
 
 if not FACEBOOK_PAGE_ID or not FACEBOOK_PAGE_ACCESS_TOKEN:
     logging.warning("⚠️ FACEBOOK_PAGE_ID or FACEBOOK_PAGE_ACCESS_TOKEN not set. Facebook posting will fail.")
@@ -22,6 +23,71 @@ if not FACEBOOK_PAGE_ID or not FACEBOOK_PAGE_ACCESS_TOKEN:
 s3 = boto3.client("s3", region_name=AWS_REGION)
 
 GRAPH_API_BASE = "https://graph.facebook.com/v18.0"
+
+# ---------- HubSpot CRM Recording ----------
+def record_post_in_hubspot(user_id, platform, caption, post_id, post_url, media_urls):
+    """
+    Record the Facebook post in HubSpot CRM.
+    
+    Args:
+        user_id: User identifier
+        platform: "Facebook"
+        caption: Post caption/message text
+        post_id: Facebook post ID
+        post_url: Full Facebook post URL
+        media_urls: List of image URLs posted
+    """
+    if not HUBSPOT_API_URL:
+        logging.warning("⚠️ HUBSPOT_API_URL not configured, skipping CRM recording")
+        return
+    
+    try:
+        # Step 1: Create/update contact
+        contact_payload = {
+            "user_id": user_id,
+            "properties": {
+                "user_id": user_id
+            }
+        }
+        
+        contact_response = requests.post(
+            f"{HUBSPOT_API_URL}/crm/contact",
+            json=contact_payload,
+            timeout=10
+        )
+        
+        if contact_response.status_code != 200:
+            logging.error(f"❌ Failed to create/update HubSpot contact: {contact_response.text}")
+            return
+        
+        contact_id = contact_response.json().get("contact_id")
+        logging.info(f"✅ HubSpot contact created/updated: {contact_id}")
+        
+        # Step 2: Record post as Deal
+        post_payload = {
+            "contact_id": contact_id,
+            "platform": platform,
+            "caption": caption,
+            "post_urn": post_id,
+            "post_url": post_url,
+            "media_urls": media_urls if isinstance(media_urls, list) else [media_urls],
+            "status": "published"
+        }
+        
+        post_response = requests.post(
+            f"{HUBSPOT_API_URL}/crm/post",
+            json=post_payload,
+            timeout=10
+        )
+        
+        if post_response.status_code == 200:
+            deal_id = post_response.json().get("deal_id")
+            logging.info(f"✅ Post recorded in HubSpot CRM: Deal ID {deal_id}")
+        else:
+            logging.error(f"❌ Failed to record post in HubSpot: {post_response.text}")
+            
+    except Exception as e:
+        logging.error(f"❌ Error recording post in HubSpot: {str(e)}")
 
 # ---------- Helpers ----------
 def _extract_image_number(key_or_url: str) -> int:
@@ -160,6 +226,7 @@ def _create_feed_post_with_media(media_fbids: List[str], caption: str) -> Tuple[
 
 # ---------- Public API ----------
 def post_images_to_facebook(
+    user_id: str,
     image_urls: Optional[List[str]] = None,
     caption: Optional[str] = None,
     num_images: int = 1
@@ -170,6 +237,12 @@ def post_images_to_facebook(
     - Caption defaults to content_details.json's captions.post_caption
     - For 1 image: direct /photos with message (published=true)
     - For >1 images: create unpublished photos to get media_fbids, then post /feed with attached_media[]
+
+    Args:
+        user_id: User identifier for HubSpot CRM recording
+        image_urls: Optional list of image URLs
+        caption: Optional caption text
+        num_images: Number of images to post
 
     Returns dict with status, details, and IDs.
     """
@@ -201,6 +274,17 @@ def post_images_to_facebook(
                 j = r.json()
                 photo_id = j.get("id")
                 post_url = f"https://facebook.com/{photo_id}" if photo_id else None
+                
+                # ✅ Record in HubSpot CRM
+                record_post_in_hubspot(
+                    user_id=user_id,
+                    platform="Facebook",
+                    caption=message,
+                    post_id=photo_id,
+                    post_url=post_url,
+                    media_urls=urls
+                )
+                
                 return {"status": "success", "type": "single", "photo_id": photo_id, "post_url": post_url}
             return {"status": "error", "message": f"HTTP {r.status_code}: {r.text}"}
 
@@ -220,71 +304,27 @@ def post_images_to_facebook(
         if not ok:
             return {"status": "error", "message": err or "Failed to create feed post", "details": errors}
 
+        post_url = f"https://facebook.com/{post_id}" if post_id else None
+        
+        # ✅ Record in HubSpot CRM
+        record_post_in_hubspot(
+            user_id=user_id,
+            platform="Facebook",
+            caption=message,
+            post_id=post_id,
+            post_url=post_url,
+            media_urls=urls
+        )
+
         return {
             "status": "success",
             "type": "multi",
             "post_id": post_id,
             "attached_media_count": len(fbids),
             "errors": errors or None,
-            "post_url": f"https://facebook.com/{post_id}" if post_id else None,
+            "post_url": post_url,
         }
 
     except Exception as e:
         logging.exception("Facebook posting failed: %s", str(e))
         return {"status": "error", "message": str(e)}
-
-
-
-
-
-# if __name__ == "__main__":
-#     import argparse
-#     import sys
-
-#     # Verbose logs for quick debugging
-#     logging.basicConfig(
-#         level=logging.INFO,
-#         format="%(asctime)s - %(levelname)s - %(message)s"
-#     )
-
-#     # Quick sanity checks
-#     if not AWS_REGION or not S3_BUCKET_NAME:
-#         logging.error("AWS_REGION or S3_BUCKET_NAME missing. Check your .env")
-#         sys.exit(1)
-#     if not FACEBOOK_PAGE_ID or not FACEBOOK_PAGE_ACCESS_TOKEN:
-#         logging.error("FACEBOOK_PAGE_ID or FACEBOOK_PAGE_ACCESS_TOKEN missing. Check your .env")
-#         sys.exit(1)
-
-#     # CLI arguments: python this_file.py --num 2 --caption "optional caption"
-#     parser = argparse.ArgumentParser(description="Test Facebook multi-image posting from latest S3 images.")
-#     parser.add_argument("--num", dest="num_images", type=int, default=int(os.getenv("TEST_FB_NUM_IMAGES", "2")),
-#                         help="How many images to post (default: 2)")
-#     parser.add_argument("--caption", dest="caption", type=str, default=None,
-#                         help="Optional caption override")
-#     parser.add_argument("--use-s3-latest", action="store_true",
-#                         help="Force fetching latest images from S3 (default behavior)")
-#     args = parser.parse_args()
-
-#     # Fetch which images we’re about to use (for visibility before posting)
-#     # This respects your image-number ordering (image_1_ first, image_2_ next, etc.)
-#     candidate_urls = _get_latest_generated_images_from_s3(args.num_images)
-#     candidate_urls = _sort_image_urls_by_number(candidate_urls)[:max(1, args.num_images)]
-#     logging.info("🧪 Candidate images to post (in order): %s", candidate_urls)
-
-#     # Kick off the post (passing image_urls is optional — your function can fetch itself)
-#     result = post_images_to_facebook(
-#         image_urls=candidate_urls,  # or None to let it fetch again internally
-#         caption=args.caption,       # or None to auto-pull from content_details.json
-#         num_images=args.num_images
-#     )
-
-#     # Pretty print result
-#     print(json.dumps(result, indent=2, ensure_ascii=False))
-
-#     # Helpful hints on common failures
-#     if result.get("status") != "success":
-#         logging.warning("❗Post failed. Common causes:")
-#         logging.warning(" - Missing/invalid Page token (must be a PAGE token with pages_manage_posts).")
-#         logging.warning(" - App not in a role with access (Dev Mode only works for admins/developers/testers).")
-#         logging.warning(" - Images not publicly reachable (check S3 object ACL and URL).")
-#         logging.warning(" - Wrong Graph API version or endpoint shape.")

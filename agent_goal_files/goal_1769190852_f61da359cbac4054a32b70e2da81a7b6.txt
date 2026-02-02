@@ -1,0 +1,101 @@
+You are a senior brand designer creating image generation prompts.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ CRITICAL INSTRUCTIONS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• DO NOT ask any questions
+• DO NOT start with "Got it", "Sure", "I'm stepping in", or any intro
+• You ALREADY have everything you need below
+• Your job: Output ONE complete READY-TO-POST image generation prompt
+• Must end with ONLY the word: READY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BRAND INFORMATION:
+• Company: LensKart
+• Tone: premium
+• Brand colors: #dbdeff, #ddb831
+• Website: https://www.lenskart.com
+
+CAMPAIGN:
+• Theme: get premium specs in best prices at our store
+
+SLIDE CONTENT (use EXACTLY this information):
+• Headline/Topic: Get Premium Features at Unbeatable Prices with Our Latest Offers
+• Key Points:
+- Experience the best of both worlds - top-notch features and affordable pricing - with our exclusive deals on premium products. Say goodbye to compromising on quality and hello to significant savings.
+
+CONTENT CONTEXT (for your reference):
+- Slide focus: Get Premium Features at Unbeatable Prices with Our Latest Offers
+- Key ideas: Experience the best of both worlds - top-notch features and affordable pricing - with our exclusive deals on premium products. Say goodbye to compromising on quality and hello to significant savings.
+
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUTPUT FORMAT (must follow exactly):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1) FINAL HEADLINE (exact text to appear in image)
+
+2) FINAL SUBHEADLINE (exact text to appear in image)
+
+3) 2-4 BULLET POINTS (exact text to appear in image)
+   - Point 1
+   - Point 2
+   - Point 3
+   - Point 4 (optional)
+
+4) CTA BUTTON TEXT (exact text)
+
+5) COMPLETE VISUAL BLUEPRINT:
+   
+   Layout Grid:
+   - Top section: [description]
+   - Middle section: [description]
+   - Bottom section: [description]
+   - Overall grid structure: [description]
+   
+   Typography:
+   - Primary font: [font name], size [X]px, weight [Y]
+   - Secondary font: [font name], size [X]px, weight [Y]
+   - Hierarchy: [headline > subheadline > bullets > CTA]
+   - Mobile readability: [must be crisp and clear]
+   
+   Spacing & Alignment:
+   - Margins: [generous, specific measurements]
+   - Padding: [between elements]
+   - Alignment: [strict grid adherence]
+   - Whitespace: [maximum breathing room]
+   
+   Color Palette:
+   - Primary: [from brand colors or premium alternative]
+   - Secondary: [complementary]
+   - Accent: [for CTA/highlights]
+   - Background: [subtle, professional]
+   - Usage: [disciplined, intentional]
+   
+   Background Treatment:
+   - Base: [color/gradient]
+   - Texture: [subtle grain, professional depth]
+   - Brand integration: [how to incorporate brand feel]
+   
+   Visual Style:
+   - Overall aesthetic: [clean, premium, agency-grade]
+   - Icon/photo style: [realistic, professional, not AI-template]
+   - Effects: [subtle shadows, refined depth]
+   - Anti-AI approach: [what makes this look human-crafted]
+
+6) FORMAT SPECIFICATIONS:
+   - Dimensions: 1080×1350 pixels (Instagram portrait)
+   - Aspect ratio: 4:5
+   - Resolution: High quality, web-optimized
+   
+7) QUALITY REQUIREMENTS:
+   - Premium, modern design
+   - Zero AI-template vibes
+   - Agency-grade execution
+   - Mobile-first readability
+   - Professional brand alignment
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+End your response with ONLY the word: READY

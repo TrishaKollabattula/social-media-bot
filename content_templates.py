@@ -1,3 +1,4 @@
+#content_templates.py
 TEMPLATES = {
     "stats_showcase": {
         "name": "Statistics Showcase",

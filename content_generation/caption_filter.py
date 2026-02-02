@@ -1,3 +1,4 @@
+#caption_filter.py
 class CaptionFilter:
     @staticmethod
     def filter_content(content_list, max_length=120, min_length=40, keywords=None):

@@ -1,58 +1,109 @@
 {
-  "status": "warning",
-  "user_id": "maharaj",
-  "theme": "diwali party",
+  "status": "success",
+  "user_id": "padmavati",
+  "theme": "Create engaging social media posts for Padmavati Bhojanalay, a home-style Indian food and catering service.\n\nFocus on hygienic preparation, homely taste, consistent quality, and affordable pricing.",
   "content_type": "Promotional",
-  "template_used": "listicle",
-  "template_name": "Numbered List",
+  "template_used": "single_image",
+  "template_name": "Single Image Brief",
   "subtopics": [
     {
-      "header": "Diwali Party: A Blast from the Past",
-      "body": "Recreate the magic of your childhood Diwali celebrations with a themed party that'll transport you back to a time of love, laughter, and sparklers!",
-      "structure_type": "hook"
+      "title": "Taste Home, Feel at Home!",
+      "body": "Enjoy hygienic, authentic Indian meals made with love, at prices that won't break the bank."
     }
   ],
   "slide_contents": {
     "slide_1": {
-      "title": "Diwali Party: A Blast from the Past",
+      "title": "Taste Home, Feel at Home!",
       "body": [
-        "Recreate the magic of your childhood Diwali celebrations with a themed party that'll transport you back to a time of love, laughter, and sparklers!"
+        "Enjoy hygienic, authentic Indian meals made with love, at prices that won't break the bank."
       ],
-      "structure_type": "hook",
-      "visual_hint": "numbered_list, icons_per_item, scannable_layout"
+      "structure_type": "text_overlay",
+      "visual_hint": "clean_typography, readable_text, professional_layout"
     }
   },
   "captions": {
-    "post_caption": "\"Get ready to transport yourself to a magical night of lights and laughter, as we bring back the essence of Diwali in a way you've never experienced before! 🎉🕯️\n\n**Item 1: The Diwali Party: A Blast from the Past**\nWe're taking a trip down memory lane, revisiting the nostalgic charm of Diwali celebrations from the past. Expect a night of retro music, vintage decor, and old-school games that will transport you back to a bygone era. 🕰️\n\n**Item 2: Delicious Traditional Treats**\nIndulge in a delectable spread of traditional Diwali sweets and snacks, carefully crafted to transport your taste buds to a world of flavors and aromas. From classic gulab jamun to crispy samosas, our culinary delights will leave you craving for more. 🍰\n\n**Item 3: Vibrant Rangoli Designs**\nExperience the beauty of traditional Indian art as we create stunning rangoli designs that will mesmerize your senses. From intricate patterns to vibrant colors, our artisans will bring the magic of Indian culture to life. 🎨\n\n**Item 4: Exciting Games and Contests**\nGet ready to put your skills to the test with our exciting games and contests, designed to bring out the inner child in you. From traditional Indian games to modern twists, we've got something for everyone to enjoy. 🎊\n\n**Item 5: Live Music and Dance Performances**\nImmerse yourself in the rhythms and melodies of India as our talented musicians and dancers take the stage. From classical to contemporary, our performances will keep you enthralled and entertained throughout the night. 🎶\n\n**Bonus: Meet Our Special Guests**\nWe're thrilled to announce that some of India's most talented artists and influencers will be joining us at the Diwali Party, making it an unforgettable night to remember. 🤩\n\nSo, are you ready to experience the magic of Diwali like never before? Join us for an unforgettable night of fun, food, and festivities! What do you think? Comment below! 💬 #CraftingBrain #Promotional #Diwaliparty #Business #Innovation\""
+    "post_caption": "Craving a taste of home? 🍽️✨ At Padmavati Bhojanalay, we serve delicious, hygienically prepared Indian dishes that remind you of mom's cooking. Consistent quality and affordability are our promise! Experience the warmth of home-style flavors without the fuss. Ready to indulge? Order now and bring the taste of India to your table! 🇮🇳👌 #HomeStyleCooking #IndianCuisine #PadmavatiBhojanalay"
   },
   "summary": [
-    "1. Diwali Party: A Blast from the Past: Diwali Party: A Blast from the Past"
+    "1. Taste Home, Feel at Home!: Enjoy hygienic, authentic Indian meals made with love, at prices that won't break the bank."
   ],
   "business_context": {
-    "business_type": "general"
+    "business_type": "restaurant",
+    "company_name": "Padmavati Bhojanaly Catering",
+    "brand_name": "Padmavati Bhojanaly Catering",
+    "tone": "bold",
+    "color_theme": "#ffffff, #ea2a2a, #000000",
+    "goals": "Offers / promotions, Hiring / culture",
+    "frequency": "daily",
+    "products_services": null,
+    "target_audience": null,
+    "brand_colors": [
+      "#ffffff",
+      "#ea2a2a",
+      "#000000"
+    ],
+    "brand_values": null,
+    "unique_selling_points": null,
+    "phone": null,
+    "website": "www.padmavatibhojanalay.com\n9381640657",
+    "email": null,
+    "address": null,
+    "tagline": null,
+    "has_logo": true,
+    "logo_s3_url": "https://marketing-bot-images.s3.ap-south-1.amazonaws.com/logos/padmavati_84452d86.png",
+    "ai_images": true,
+    "post_schedule_time": "10:00",
+    "raw_answers": {
+      "business_logo": null,
+      "typical_customers": "Office employees, corporate staff, factory workers, and institutions",
+      "tone": "bold",
+      "post_schedule_time": "10:00",
+      "brand_name": "Padmavati Bhojanaly Catering",
+      "contact_details": "www.padmavatibhojanalay.com\n9381640657",
+      "content_highlight": [
+        "Special events",
+        "Customer interactions"
+      ],
+      "color_theme": [
+        "#ffffff",
+        "#ea2a2a",
+        "#000000"
+      ],
+      "image_preference": [
+        "Food presentation",
+        "Dining ambiance",
+        "Kitchen activity"
+      ],
+      "sustainability": "No",
+      "frequency": "daily",
+      "cuisine_experience": "Nutritious South Indian and Indian home-style meals, served in a clean, hygienic, and value-for-money canteen-style dining experience.",
+      "ai_images": true,
+      "goals": [
+        "Offers / promotions",
+        "Hiring / culture"
+      ],
+      "unique_qualities": "Homely food, clean environment, and consistent quality."
+    },
+    "colors": [
+      "#ffffff",
+      "#ea2a2a",
+      "#000000"
+    ],
+    "palette": {
+      "primary": "#ffffff",
+      "secondary": "#ea2a2a"
+    }
   },
   "meme_mode": false,
   "generation_metadata": {
-    "timestamp": "2026-01-07T12:22:02.882900",
+    "timestamp": "2026-02-01T20:44:06.685089",
     "platforms": [
-      "facebook"
+      "linkedin"
     ],
-    "business_type": "general",
-    "has_logo": false,
-    "has_colors": false,
-    "groq_used": true,
-    "user_id": "maharaj",
-    "template_structure": [
-      "hook",
-      "item1",
-      "item2",
-      "item3",
-      "item4",
-      "item5",
-      "bonus",
-      "cta"
-    ],
-    "content_type": "Promotional",
-    "validation_passed": false
+    "intent": "image",
+    "business_type": "restaurant",
+    "company_name": "Padmavati Bhojanaly Catering",
+    "personalization_level": "high",
+    "ai_provider": "openai"
   }
 }

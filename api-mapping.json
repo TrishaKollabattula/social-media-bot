@@ -60,8 +60,19 @@
         "class": "UserHandler",
         "method": "get_user_logo"
       }
+    ],
+
+    "social-status": [
+      {
+        "path": "",
+        "request_method": "GET",
+        "package": "user_handler",
+        "class": "UserHandler",
+        "method": "get_social_status"
+      }
     ]
   },
+
   "content": {
     "generate": [
       {
@@ -73,6 +84,7 @@
       }
     ]
   },
+
   "queue": {
     "enqueue": [
       {
@@ -93,6 +105,7 @@
       }
     ]
   },
+
   "social": {
     "status": [
       {
@@ -185,6 +198,7 @@
       ]
     }
   },
+
   "crm": {
     "webhook": {
       "instagram": [

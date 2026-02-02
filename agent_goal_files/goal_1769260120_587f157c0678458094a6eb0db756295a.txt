@@ -1,0 +1,53 @@
+You are a senior brand designer creating image generation prompt.
+
+⚠️ CRITICAL INSTRUCTIONS:
+• NO questions, NO intro, NO acknowledgments
+• Output ONE complete READY-TO-POST image generation prompt
+• Must end with ONLY: READY
+
+BRAND INFORMATION:
+• Company: Unisex Salon
+• Tone: bold
+• Brand colors: #a81f1f, #fdfefb
+• Website: https://www.unisexsalon.com
+
+CAMPAIGN:
+• Theme: Create a social media post promoting a unisex salon’s grooming and styling services and encouraging customers to book or visit.
+
+SLIDE CONTENT:
+• Headline: Unisex Salon - Image Request
+• Points:
+- Create a high-end, modern image showcasing a vibrant, tech-forward unisex salon with a polished haircut and styling services. The main subject is a person sitting in a sleek, minimalist barber chair, receiving a professional haircut with precise, futuristic tools while looking directly at the camera with a confident expression. The background is a trendy, abstract urban cityscape with digital interfaces and abstract tech patterns, conveying innovation and style.
+- Composition: Use the rule of thirds to place the barber chair at an angle, with the person's face at the intersection of two thirds lines. Lighting: Employ a mix of studio lighting and subtle, natural light to create a warm and inviting atmosphere. Color scheme: Balance the warm tones of the cityscape with the cool tones of the salon equipment and brand colors #a81f1f and #fdfefb. Depth of field: Focus on the person's face and the haircut tools, blurring the background to emphasize the subject.
+- Aspect ratio: 1080x1350 (Instagram portrait). Resolution: High quality, print-ready (300 DPI). Style: Ultra-realistic photography with subtle texture and depth.
+- The image must appear authentic and professional, with natural textures and realistic details. Avoid any obvious AI-generated features or over-processing. The composition should be magazine-quality, with a strong focus on the main subject and a well-balanced background.
+
+NON-NEGOTIABLE:
+- Use the slide headline + points as the BASELINE truth.
+- Do NOT invent claims, discounts, guarantees, or offers not present in the points.
+- Keep copy premium, crisp, and mobile-readable.
+
+CONTENT CONTEXT:
+- Slide focus: Unisex Salon - Image Request
+- Key ideas: Create a high-end, modern image showcasing a vibrant, tech-forward unisex salon with a polished haircut and styling services. The main subject is a person sitting in a sleek, minimalist barber chair, receiving a professional haircut with precise, futuristic tools while looking directly at the camera with a confident expression. The background is a trendy, abstract urban cityscape with digital interfaces and abstract tech patterns, conveying innovation and style.; Composition: Use the rule of thirds to place the barber chair at an angle, with the person's face at the intersection of two thirds lines. Lighting: Employ a mix of studio lighting and subtle, natural light to create a warm and inviting atmosphere. Color scheme: Balance the warm tones of the cityscape with the cool tones of the salon equipment and brand colors #a81f1f and #fdfefb. Depth of field: Focus on the person's face and the haircut tools, blurring the background to emphasize the subject.; Aspect ratio: 1080x1350 (Instagram portrait). Resolution: High quality, print-ready (300 DPI). Style: Ultra-realistic photography with subtle texture and depth.; The image must appear authentic and professional, with natural textures and realistic details. Avoid any obvious AI-generated features or over-processing. The composition should be magazine-quality, with a strong focus on the main subject and a well-balanced background.
+
+
+
+OUTPUT FORMAT:
+1) FINAL HEADLINE dont include anything like create or etc select the heading very nicely which can capture users attention
+2) FINAL SUBHEADLINE (exact text)
+3) 2 BULLET POINTS (exact text)
+4) CTA BUTTON TEXT (exact)
+5) COMPLETE VISUAL BLUEPRINT:
+   - Layout Grid: top/middle/bottom structure
+   - Typography: fonts, sizes, weights, hierarchy
+   - Spacing: margins, padding, alignment, whitespace
+   - Colors: primary, secondary, accent, background
+   - Background: base, texture, brand integration
+   - Visual Style: aesthetic, icon/photo style, effects, anti-AI approach
+6) FORMAT: 1080×1350 pixels (Instagram portrait 4:5)
+7) QUALITY: Premium, modern, zero AI vibes, agency-grade, mobile-ready
+
+by taking all this information create a prompt which i will be using below to generate a ready-to-post image and in theme is there is create or generate words dont try to include in the heading 
+u are free to use your thinking capabiltiy and then generate a prompt which will generate a best image 
+End with: READY

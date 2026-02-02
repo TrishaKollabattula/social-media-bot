@@ -1,4 +1,4 @@
-# content_handler.py - CONFIRMED WORKING WITH MEME MODE
+# content_handler.py - UPDATED WITH GPT PROMPT GENERATION
 
 import json
 import logging
@@ -53,7 +53,8 @@ class ContentGenerator:
             business_context["business_type"] = data.get("businessType")
         
         if data.get("businessName"):
-            business_context["business_name"] = data.get("businessName")
+            business_context["company_name"] = data.get("businessName")
+            business_context["brand_name"] = data.get("businessName")
             
         if data.get("targetAudience"):
             business_context["target_audience"] = data.get("targetAudience")
@@ -80,6 +81,83 @@ class ContentGenerator:
                 
         return business_context if business_context else None
 
+    # ✅ NEW HELPER METHOD
+    def _extract_clean_website(self, raw_website: str) -> str:
+        """
+        Extract clean website URL from contact_details field
+        Example: "www.craftingbrain.com\n+91 6304634575" -> "https://www.craftingbrain.com"
+        """
+        if not raw_website:
+            return None
+        
+        # Split by newlines and find the URL part
+        lines = raw_website.split('\n')
+        for line in lines:
+            line = line.strip()
+            # Check if line looks like a URL
+            if any(marker in line.lower() for marker in ['www.', 'http://', 'https://', '.com', '.in', '.org', '.ai', '.io', '.co']):
+                # Clean the URL
+                url = line.strip()
+                
+                # Add https:// if missing
+                if not url.startswith('http://') and not url.startswith('https://'):
+                    url = 'https://' + url
+                
+                # Remove any trailing slashes
+                url = url.rstrip('/')
+                
+                logger.info(f"✅ Extracted clean website URL: {url}")
+                return url
+        
+        logger.warning(f"⚠️ No valid URL found in: {raw_website[:50]}...")
+        return None
+
+    def _normalize_brand_colors(self, business_context: dict) -> list[str]:
+        """
+        Accepts multiple schema variants and returns a clean list of hex colors.
+        Supports:
+        - color_theme as list OR comma-separated string
+        - brand_colors / colors as list OR string
+        - palette dict
+        """
+        if not business_context:
+            return []
+
+        def _from_string(s: str) -> list[str]:
+            parts = [p.strip() for p in s.split(",")]
+            return [p for p in parts if p.startswith("#")]
+
+        # 1) color_theme (your DynamoDB field)
+        v = business_context.get("color_theme")
+        if isinstance(v, list) and v:
+            return [c.strip() for c in v if isinstance(c, str) and c.strip().startswith("#")]
+        if isinstance(v, str) and v.strip():
+            colors = _from_string(v)
+            if colors:
+                return colors
+
+        # 2) brand_colors / colors
+        v = business_context.get("brand_colors") or business_context.get("colors")
+        if isinstance(v, list) and v:
+            return [c.strip() for c in v if isinstance(c, str) and c.strip().startswith("#")]
+        if isinstance(v, str) and v.strip():
+            colors = _from_string(v)
+            if colors:
+                return colors
+
+        # 3) palette dict
+        pal = business_context.get("palette")
+        if isinstance(pal, dict):
+            out = []
+            for k in ("primary", "secondary", "accent"):
+                c = pal.get(k)
+                if isinstance(c, str) and c.strip().startswith("#"):
+                    out.append(c.strip())
+            if out:
+                return out
+
+        return []
+
     def generate(self, context):
         try:
             request = context["request"]
@@ -95,6 +173,11 @@ class ContentGenerator:
             meme_mode = data.get("meme_mode", False) or data.get("meme", False)
             if isinstance(meme_mode, str):
                 meme_mode = meme_mode.lower() in ['true', '1', 'yes']
+
+            # ✅ NEW: Extract optional custom image prompt from frontend
+            user_image_prompt = data.get("imagePrompt") or data.get("image_prompt") or data.get("customPrompt")
+            if user_image_prompt:
+                logger.info(f"🎨 Custom image prompt received: {user_image_prompt[:100]}...")
 
             # Get user ID
             headers = request.get("headers", {}) or {}
@@ -127,7 +210,73 @@ class ContentGenerator:
             logger.info(f"🖼️ Number of Images: {num_images}")
             logger.info(f"🎭 Meme Mode: {'ENABLED ✅' if meme_mode else 'DISABLED'}")
             
-            business_context = self.extract_business_context(data)
+            # ✅ 1) Always start with DynamoDB business profile (source of truth)
+            business_context = self.pracharik_generator.get_user_business_data(user_id)
+            # 🎨 Normalize brand colors from DynamoDB profile
+            brand_colors = self._normalize_brand_colors(business_context or {})
+
+            if business_context is None:
+                business_context = {}
+
+            if brand_colors:
+                # canonical fields used everywhere
+                business_context["brand_colors"] = brand_colors
+                business_context["colors"] = brand_colors
+
+                # optional palette mapping
+                business_context["palette"] = {
+                    "primary": brand_colors[0],
+                    "secondary": brand_colors[1] if len(brand_colors) > 1 else brand_colors[0],
+                }
+
+            logger.info(f"🎨 Brand Colors: {brand_colors or 'Missing'}")
+
+            # ✅ NEW: Extract website URL from business context
+            website_url = None
+            if business_context:
+                # Try multiple fields where website might be stored
+                raw_website = (
+                    business_context.get('website') or 
+                    business_context.get('contact_details') or 
+                    business_context.get('website_url')
+                )
+                
+                if raw_website:
+                    website_url = self._extract_clean_website(raw_website)
+                    if website_url:
+                        logger.info(f"🌐 Website from profile: {website_url}")
+                else:
+                    logger.warning("⚠️ No website found in user profile")
+
+            # ✅ OPTIONAL: Allow frontend to override website
+            frontend_website = data.get("websiteUrl") or data.get("website_url") or data.get("website")
+            if frontend_website:
+                website_url = frontend_website
+                logger.info(f"🌐 Website overridden from frontend: {website_url}")
+
+            # ✅ 2) Overlay request-provided fields (only if present)
+            req_ctx = self.extract_business_context(data)
+            if req_ctx:
+                if req_ctx.get("business_type"):
+                    business_context = business_context or {}
+                    business_context["business_type"] = req_ctx["business_type"]
+
+                if req_ctx.get("business_name"):
+                    business_context = business_context or {}
+                    business_context["company_name"] = req_ctx["business_name"]
+                    business_context["brand_name"] = req_ctx["business_name"]
+
+                if req_ctx.get("target_audience"):
+                    business_context = business_context or {}
+                    business_context["target_audience"] = req_ctx["target_audience"]
+
+                if req_ctx.get("products_services"):
+                    business_context = business_context or {}
+                    business_context["products_services"] = req_ctx["products_services"]
+
+                if req_ctx.get("industry"):
+                    business_context = business_context or {}
+                    business_context["business_type"] = req_ctx["industry"]
             
             if not theme or not content_type:
                 return {"error": "Missing theme or content type"}
@@ -136,7 +285,7 @@ class ContentGenerator:
             
             if business_context:
                 logger.info(f"Business Type: {business_context.get('business_type', 'Unknown')}")
-                logger.info(f"Company: {business_context.get('business_name', 'Unknown')}")
+                logger.info(f"Company: {business_context.get('company_name', 'Unknown')}")
 
             # Store the prompt to S3
             try:
@@ -159,15 +308,14 @@ class ContentGenerator:
             
             logger.info(f"📝 Calling Pracharik content generator...")
             
-            # 🎭 Pass meme_mode to content generator
             content_result = self.pracharik_generator.generate_complete_content(
                 theme=theme,
                 content_type=content_type,
                 num_subtopics=num_images,
                 platforms=platforms_list,
                 company_context=business_context,
-                user_id=user_id,  # ✅ Pass user_id
-                meme_mode=meme_mode  # 🎭 Pass meme_mode
+                user_id=user_id,
+                meme_mode=meme_mode
             )
             
             logger.info(f"✅ Pracharik content generation completed")
@@ -179,7 +327,7 @@ class ContentGenerator:
                         content_details_temp = json.load(f)
                     
                     content_details_temp['user_id'] = user_id
-                    content_details_temp['meme_mode'] = meme_mode  # 🎭 Save meme mode
+                    content_details_temp['meme_mode'] = meme_mode
                     
                     with open("content_details.json", "w", encoding="utf-8") as f:
                         json.dump(content_details_temp, f, indent=2, ensure_ascii=False)
@@ -202,7 +350,6 @@ class ContentGenerator:
             # Format subtopics for image generation
             transformed_subtopics = []
             for i, subtopic in enumerate(subtopics):
-                # subtopic is a dict, not a string title
                 slide_key = f"slide_{i+1}"
                 slide = slide_contents.get(slide_key, {})
                 details = " ".join(slide.get('body', [])) if slide else subtopic.get('body', '')
@@ -216,14 +363,18 @@ class ContentGenerator:
 
             logger.info(f"🎨 Starting image generation for {len(transformed_subtopics)} images...")
 
-            # 🎭 Generate images with meme toggle
+            # ✅ UPDATED: Pass new parameters to image generator
             image_urls = self.image_generator.generate_images(
                 theme=theme,
                 content_type=content_type,
                 num_images=num_images,
                 subtopics=transformed_subtopics,
                 user_id=user_id,
-                meme_mode=meme_mode  # 🎭 Pass meme mode flag
+                meme_mode=meme_mode,
+                website_url=website_url,  # ✅ NEW: From DynamoDB or frontend
+                user_image_prompt=user_image_prompt,  # ✅ NEW: Optional custom prompt
+                content_summary=content_details.get("summary", []),  # ✅ NEW: Content context
+                business_context=business_context  # ✅ NEW: Full business profile
             )
             logger.info(f"✅ Generated image URLs: {image_urls}")
 
@@ -332,20 +483,24 @@ class ContentGenerator:
                 "platform_optimizations": content_details.get("platform_optimizations", {}),
                 "business_context": {
                     "business_type": business_context.get("business_type") if business_context else None,
-                    "company_name": business_context.get("business_name") if business_context else None
+                    "company_name": business_context.get("company_name") if business_context else None  # ✅ FIXED: was business_name
                 },
                 "content_type": content_type,
                 "num_images_generated": len(image_only_urls),
                 "num_pdfs_generated": len(pdf_urls),
                 "user_id": user_id,
                 "successful_posts": successful_posts,
-                "meme_mode_used": meme_mode  # 🎭 Include in response
+                "meme_mode_used": meme_mode,
+                "website_url": website_url,  # ✅ NEW: Include in response
+                "custom_prompt_used": bool(user_image_prompt)  # ✅ NEW: Indicate if custom prompt was used
             }
 
             logger.info(f"=== CONTENT GENERATION COMPLETE ===")
             logger.info(f"✅ Generated {len(image_only_urls)} images and {len(pdf_urls)} PDFs")
             logger.info(f"✅ Posted to {successful_posts} platforms")
             logger.info(f"🎭 Meme Mode: {'ENABLED ✅' if meme_mode else 'DISABLED'}")
+            logger.info(f"🌐 Website: {website_url or 'Not provided'}")
+            logger.info(f"🎨 Custom Prompt: {'Yes ✅' if user_image_prompt else 'No'}")
             logger.info(f"👤 User ID: {user_id}")
             
             return response_data

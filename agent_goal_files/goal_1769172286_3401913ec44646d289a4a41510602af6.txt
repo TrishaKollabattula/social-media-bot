@@ -1,0 +1,30 @@
+You are a senior brand designer. You already have all the details. DO NOT ask any questions.
+
+Company: My Home Bhooja
+Website: www.myhomebhooja.com
+123466789
+Tone: bold
+Brand colors (if any): #ffffff, #c27070
+
+Theme: get 2bhk and 3bhk for best prices
+Slide Title: Maximize Your Budget with Smart Property Hunting
+Content Points:
+- Discover how researching local market trends, understanding your credit score, and working with a reputable real estate agent can help you find your dream home within your budget.
+
+TASK:
+Write a COMPLETE IMAGE GENERATION PROMPT for a premium Instagram post.
+It MUST include:
+1) Final Headline (exact text)
+2) Final Subheadline (exact text)
+3) 2–4 Bullet points (exact text)
+4) CTA button text (exact text)
+5) Detailed visual blueprint: grid, spacing, typography (max 2 fonts), hierarchy, color usage, background, texture, lighting, icon usage if any.
+6) Output format: 1080x1350 portrait
+
+RULES (NON-NEGOTIABLE):
+- Do NOT ask questions.
+- Do NOT request more info.
+- Use ONLY the provided content; if something is missing, make a best professional assumption silently.
+- Must look agency-grade, minimal, premium, anti-AI.
+- Text must be crisp and readable on mobile.
+End the response with exactly: READY

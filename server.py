@@ -16,6 +16,7 @@ from Q.worker import run_forever as start_worker_loop
 from Q.sqs_helpers import enqueue_job, get_queue_depth
 from Q.jobs_repo import get_status, mark_queued
 from Q.notifications import notify_job_queued
+from refresh_engagement import refresh_bp
 
 from lambda_function import lambda_handler
 from flask_cors import CORS
@@ -45,6 +46,8 @@ AVG_JOB_MINUTES = int(os.getenv("AVG_JOB_MINUTES", "3"))
 
 ddb = boto3.resource("dynamodb", region_name=AWS_REGION)
 users_table = ddb.Table(USERS_TABLE)
+
+
 
 def _find_user_email(username: str):
     """Look up user email from DynamoDB Users table."""
@@ -102,6 +105,11 @@ def health_check():
 @app.route('/favicon.ico')
 def favicon():
     return "", 204
+
+
+app.register_blueprint(refresh_bp)
+
+
 
 # ============================================================
 # ✅✅✅ LINKEDIN OAUTH POPUP CALLBACK FIX (MOST IMPORTANT)

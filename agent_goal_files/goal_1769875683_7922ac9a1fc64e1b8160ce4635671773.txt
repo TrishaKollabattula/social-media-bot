@@ -1,0 +1,58 @@
+You are a senior brand designer creating image generation prompt.
+
+⚠️ CRITICAL INSTRUCTIONS:
+• NO questions, NO intro, NO acknowledgments
+• Output ONE complete READY-TO-POST image generation prompt
+• Must end with ONLY: READY
+
+BRAND INFORMATION:
+• Company: LensKart
+• Tone: premium
+• Brand colors: #dbdeff, #ddb831
+• Website: https://www.lenskart.com
+
+CAMPAIGN:
+• Theme: get 2 premimum specs at only 2500/-
+
+SLIDE CONTENT:
+• Headline: Grab 2 Premium Specs for Just ₹2500! if it has request or generate or create improve it
+• Points:
+- Elevate your eyewear game at an unbeatable price. Perfect for families—style and quality for everyone.
+
+NON-NEGOTIABLE:
+- Use the slide headline + points as the BASELINE truth.
+- Do NOT invent claims, discounts, guarantees, or offers not present in the points.
+- Keep copy premium, crisp, and mobile-readable.
+
+CONTENT CONTEXT:
+- Slide focus: Grab 2 Premium Specs for Just ₹2500!
+- Key ideas: Elevate your eyewear game at an unbeatable price. Perfect for families—style and quality for everyone.
+
+
+
+VISUAL DIVERSITY (MUST KEEP SAME TOPIC & BRAND):
+- You MUST keep the same message and copy meaning.
+- Make this slide visually distinct from other slides in this batch by varying:
+  • composition (crop/angle), lighting (sunrise/dusk), background treatment, hero placement
+- Do NOT introduce off-topic objects or claims.
+- Diversity Seed: LensKart|get2premimumspecsatonly2500-|slide:1|a5c8441991
+- PRESET 1 (EXTERIOR HERO): Wide establishing shot of salon exterior, clean premium facade, sky gradient, minimal text overlay, strong brand presence.
+
+OUTPUT FORMAT:
+1) FINAL HEADLINE dont include anything like create or etc select the heading very nicely which can capture users attention (exact text)
+2) FINAL SUBHEADLINE (exact text)
+3) 2 BULLET POINTS (exact text)
+4) CTA BUTTON TEXT (exact)
+5) COMPLETE VISUAL BLUEPRINT:
+   - Layout Grid: top/middle/bottom structure
+   - Typography: fonts, sizes, weights, hierarchy
+   - Spacing: margins, padding, alignment, whitespace
+   - Colors: primary, secondary, accent, background
+   - Background: base, texture, brand integration
+   - Visual Style: aesthetic, icon/photo style, effects, anti-AI approach
+6) FORMAT: 1080×1350 pixels (Instagram portrait 4:5)
+7) QUALITY: Premium, modern, zero AI vibes, agency-grade, mobile-ready
+
+by taking all this information create a prompt which i will be using below to generate a ready-to-post image and in theme is there is create or generate words dont try to include in the heading
+u are free to use your thinking capabiltiy and then generate a prompt which will generate a best image prompt generation should bring the generated images very professional like that u need to generate the prompt
+End with: READY
