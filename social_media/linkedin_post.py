@@ -9,21 +9,22 @@ LinkedIn Poster (FULLY FIXED)
    SK: sk = "platform#linkedin"
 
 ✅ Posting rule (your requirement):
-   - If requested_images == 1  -> post IMAGE
-   - If requested_images >= 2  -> post PDF
+   - If requested_images == 1  -> post IMAGE (ignore PDF)
+   - If requested_images >= 2  -> post PDF (ignore images)
 
-✅ FIXES:
+✅ Fixes:
    - Backward compatible: accepts s3_url=... (no TypeError)
-   - NEW: accepts direct media via args:
+   - Accepts direct media via args:
        media_urls=[img, pdf], image_url=..., pdf_url=..., all_urls=[...]
-   - Does NOT depend on filtered_urls_for_social_media (your pipeline keeps it empty)
-   - If no media found anywhere -> returns "image generation failed, try again"
+   - Does NOT depend on filtered_urls_for_social_media (works even if empty)
+   - If requested_images missing -> infer from provided URLs (count image URLs)
+   - Extracts LinkedIn Post ID reliably (x-linkedin-id OR x-restli-id OR location OR JSON)
 """
 
 import os
 import json
 import logging
-from typing import Optional, Dict, Any, Tuple, List
+from typing import Optional, Dict, Any, Tuple, List, Any as AnyType
 
 import boto3
 import requests
@@ -59,13 +60,17 @@ table = dynamodb.Table(DYNAMODB_TABLE_NAME)
 # ----------------------------
 # Helpers
 # ----------------------------
+def _strip_q(url: str) -> str:
+    return (url or "").strip().split("?")[0]
+
+
 def _is_image_url(url: str) -> bool:
-    u = (url or "").lower().split("?")[0]
+    u = _strip_q(url).lower()
     return u.endswith((".png", ".jpg", ".jpeg", ".webp"))
 
 
 def _is_pdf_url(url: str) -> bool:
-    u = (url or "").lower().split("?")[0]
+    u = _strip_q(url).lower()
     return u.endswith(".pdf")
 
 
@@ -78,14 +83,14 @@ def _s3_https_url(bucket: str, region: str, key: str) -> str:
     return f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
 
 
-def _clean_urls(v: Any) -> List[str]:
+def _clean_urls(v: AnyType) -> List[str]:
     if not v:
         return []
     if isinstance(v, str):
         v = [v]
     if not isinstance(v, list):
         return []
-    out = []
+    out: List[str] = []
     for x in v:
         if isinstance(x, str) and x.strip():
             out.append(x.strip())
@@ -96,6 +101,48 @@ def _pick_first(urls: List[str], predicate) -> Optional[str]:
     for u in urls:
         if predicate(u):
             return u
+    return None
+
+
+def _count_images_in_urls(urls: List[str]) -> int:
+    return sum(1 for u in urls if _is_image_url(u))
+
+
+def _extract_post_id_from_response(resp: requests.Response) -> Optional[str]:
+    """
+    LinkedIn may return ID in:
+      - headers: x-linkedin-id
+      - headers: x-restli-id
+      - headers: location (contains URN/id)
+      - JSON body: {"id": "..."} or {"value": {"id": "..."}}
+    """
+    try:
+        # headers are case-insensitive
+        post_id = resp.headers.get("x-linkedin-id") or resp.headers.get("x-restli-id")
+        if post_id and str(post_id).strip():
+            return str(post_id).strip()
+
+        loc = resp.headers.get("location")
+        if loc and loc.strip():
+            # often ends with the id/urn
+            return loc.strip().rstrip("/").split("/")[-1]
+
+        # try JSON
+        try:
+            j = resp.json()
+        except Exception:
+            j = None
+
+        if isinstance(j, dict):
+            if isinstance(j.get("id"), str) and j["id"].strip():
+                return j["id"].strip()
+            val = j.get("value")
+            if isinstance(val, dict) and isinstance(val.get("id"), str) and val["id"].strip():
+                return val["id"].strip()
+
+    except Exception:
+        pass
+
     return None
 
 
@@ -173,8 +220,7 @@ class LinkedInPoster:
         return None
 
     def _extract_urls_from_meta(self, meta: Dict[str, Any]) -> Tuple[Optional[str], Optional[str], List[str]]:
-        # pull from common keys you return in content_handler result dict
-        urls = []
+        urls: List[str] = []
         urls += _clean_urls(meta.get("image_urls"))
         urls += _clean_urls(meta.get("all_urls"))
         urls += _clean_urls(meta.get("pdf_url"))
@@ -182,7 +228,6 @@ class LinkedInPoster:
         urls += _clean_urls(meta.get("images"))
         urls += _clean_urls(meta.get("final_images"))
 
-        # also handle case: meta["image_urls"] contains both img+pdf like your log
         img = _pick_first(urls, _is_image_url)
         pdf = _pick_first(urls, _is_pdf_url)
         return img, pdf, urls
@@ -268,13 +313,13 @@ class LinkedInPoster:
             init_payload = {"initializeUploadRequest": {"owner": posting_urn}}
             init_resp = requests.post(init_url, headers=headers, json=init_payload, timeout=30)
             if init_resp.status_code != 200:
-                return False, f"Failed to initialize PDF upload: {init_resp.text}"
+                return False, f"Failed to initialize PDF upload: {init_resp.status_code} - {init_resp.text}"
 
             j = init_resp.json() or {}
             upload_url = j["value"]["uploadUrl"]
             doc_urn = j["value"]["document"]
 
-            pdf_resp = requests.get(pdf_url, timeout=60)
+            pdf_resp = requests.get(pdf_url, timeout=90)
             if pdf_resp.status_code != 200:
                 return False, f"Failed to download PDF ({pdf_resp.status_code})"
 
@@ -282,13 +327,13 @@ class LinkedInPoster:
                 upload_url,
                 headers={"Authorization": f"Bearer {access_token}"},
                 data=pdf_resp.content,
-                timeout=120,
+                timeout=180,
             )
             if up_resp.status_code not in (200, 201):
-                return False, f"Failed to upload PDF: {up_resp.text}"
+                return False, f"Failed to upload PDF: {up_resp.status_code} - {up_resp.text}"
 
             post_url = "https://api.linkedin.com/rest/posts"
-            filename = os.path.basename(pdf_url).split("?")[0]
+            filename = os.path.basename(_strip_q(pdf_url))
 
             post_payload = {
                 "author": posting_urn,
@@ -297,11 +342,12 @@ class LinkedInPoster:
                 "distribution": {"feedDistribution": "MAIN_FEED"},
                 "content": {"media": {"title": filename, "id": doc_urn}},
                 "lifecycleState": "PUBLISHED",
+                "isReshareDisabledByAuthor": False,
             }
 
             post_resp = requests.post(post_url, headers=headers, json=post_payload, timeout=30)
             if post_resp.status_code == 201:
-                post_id = post_resp.headers.get("x-linkedin-id")
+                post_id = _extract_post_id_from_response(post_resp)
                 return True, f"✅ Posted PDF to LinkedIn ({target_label}). Post ID: {post_id}"
 
             return False, f"Failed to create PDF post: {post_resp.status_code} - {post_resp.text}"
@@ -330,13 +376,13 @@ class LinkedInPoster:
             init_payload = {"initializeUploadRequest": {"owner": posting_urn}}
             init_resp = requests.post(init_url, headers=headers, json=init_payload, timeout=30)
             if init_resp.status_code != 200:
-                return False, f"Failed to initialize image upload: {init_resp.text}"
+                return False, f"Failed to initialize image upload: {init_resp.status_code} - {init_resp.text}"
 
             j = init_resp.json() or {}
             upload_url = j["value"]["uploadUrl"]
             image_urn = j["value"]["image"]
 
-            img_resp = requests.get(image_url, timeout=60)
+            img_resp = requests.get(image_url, timeout=90)
             if img_resp.status_code != 200:
                 return False, f"Failed to download image ({img_resp.status_code})"
 
@@ -344,13 +390,13 @@ class LinkedInPoster:
                 upload_url,
                 headers={"Authorization": f"Bearer {access_token}"},
                 data=img_resp.content,
-                timeout=120,
+                timeout=180,
             )
             if up_resp.status_code not in (200, 201):
-                return False, f"Failed to upload image: {up_resp.text}"
+                return False, f"Failed to upload image: {up_resp.status_code} - {up_resp.text}"
 
             post_url = "https://api.linkedin.com/rest/posts"
-            filename = os.path.basename(image_url).split("?")[0]
+            filename = os.path.basename(_strip_q(image_url))
 
             post_payload = {
                 "author": posting_urn,
@@ -359,11 +405,12 @@ class LinkedInPoster:
                 "distribution": {"feedDistribution": "MAIN_FEED"},
                 "content": {"media": {"id": image_urn, "title": filename}},
                 "lifecycleState": "PUBLISHED",
+                "isReshareDisabledByAuthor": False,
             }
 
             post_resp = requests.post(post_url, headers=headers, json=post_payload, timeout=30)
             if post_resp.status_code == 201:
-                post_id = post_resp.headers.get("x-linkedin-id")
+                post_id = _extract_post_id_from_response(post_resp)
                 return True, f"✅ Posted IMAGE to LinkedIn ({target_label}). Post ID: {post_id}"
 
             return False, f"Failed to create image post: {post_resp.status_code} - {post_resp.text}"
@@ -372,7 +419,7 @@ class LinkedInPoster:
             return False, f"❌ Image post error: {str(e)}"
 
     # ----------------------------
-    # Main entry
+    # Main entry (decision logic)
     # ----------------------------
     def post_content_to_linkedin_for_user(
         self,
@@ -383,7 +430,7 @@ class LinkedInPoster:
         content_details_path: str = "content_details.json",
         # Backward compat
         s3_url: Optional[str] = None,
-        # NEW: direct media from content_handler (recommended)
+        # NEW: direct media
         image_url: Optional[str] = None,
         pdf_url: Optional[str] = None,
         media_urls: Optional[List[str]] = None,
@@ -397,8 +444,8 @@ class LinkedInPoster:
         if not caption or not caption.strip():
             caption = self.load_caption_from_content_details(content_details_path)
 
-        # 1) Use direct args first (BEST)
-        collected = []
+        # 1) Collect direct args
+        collected: List[str] = []
         collected += _clean_urls(media_urls)
         collected += _clean_urls(all_urls)
         if image_url:
@@ -411,7 +458,13 @@ class LinkedInPoster:
         arg_img = _pick_first(collected, _is_image_url)
         arg_pdf = _pick_first(collected, _is_pdf_url)
 
-        # 2) If still missing, read from meta file
+        # ✅ If requested_images missing, infer from provided URLs FIRST
+        if requested_images is None and collected:
+            inferred = _count_images_in_urls(collected)
+            if inferred > 0:
+                requested_images = inferred
+
+        # 2) If still missing, read meta file
         meta_img = meta_pdf = None
         meta_job_id = None
         if not arg_img and not arg_pdf:
@@ -419,34 +472,45 @@ class LinkedInPoster:
             meta_job_id = self._extract_job_id(meta)
             if requested_images is None:
                 requested_images = self._count_requested_images_from_meta(meta)
-            meta_img, meta_pdf, _ = self._extract_urls_from_meta(meta)
+            meta_img, meta_pdf, meta_urls = self._extract_urls_from_meta(meta)
 
-        # 3) Optional S3 lookup by job_id (only works if your S3 keys include job_id)
+            # if still None, infer from meta urls
+            if requested_images is None and meta_urls:
+                inferred = _count_images_in_urls(meta_urls)
+                if inferred > 0:
+                    requested_images = inferred
+
+        # 3) Optional S3 lookup by job_id (only works if keys include job_id)
         s3_img = s3_pdf = None
         effective_job_id = job_id or meta_job_id
         if effective_job_id and (not (arg_img or meta_img) or not (arg_pdf or meta_pdf)):
             s3_img, s3_pdf = self.get_job_media_from_s3(effective_job_id)
 
-        # Final resolved media
         final_img = arg_img or meta_img or s3_img
         final_pdf = arg_pdf or meta_pdf or s3_pdf
 
         if not final_img and not final_pdf:
             return False, "❌ Image generation failed, try again"
 
-        # Enforce your rule
+        logging.info(f"🎯 Decision input: requested_images={requested_images}, has_img={bool(final_img)}, has_pdf={bool(final_pdf)}")
+
+        # RULE 1: Single image request -> POST IMAGE ONLY
         if requested_images == 1:
             if not final_img:
                 return False, "❌ Image generation failed, try again"
+            logging.info(f"📸 Posting IMAGE (requested_images=1): {final_img}")
             return self.post_image_to_linkedin(final_img, caption, creds)
 
+        # RULE 2: Multiple images -> POST PDF ONLY
         if isinstance(requested_images, int) and requested_images >= 2:
             if not final_pdf:
                 return False, "❌ Image generation failed, try again"
+            logging.info(f"📄 Posting PDF (requested_images={requested_images}): {final_pdf}")
             return self.post_pdf_to_linkedin(final_pdf, caption, creds)
 
-        # Unknown requested_images -> safest: prefer pdf if exists
+        # RULE 3: Unknown -> safest fallback
         if final_pdf:
+            logging.info(f"📄 Posting PDF (fallback): {final_pdf}")
             return self.post_pdf_to_linkedin(final_pdf, caption, creds)
         return self.post_image_to_linkedin(final_img, caption, creds)
 

@@ -1,31 +1,31 @@
 {
   "status": "success",
   "user_id": "padmavati",
-  "theme": "Create engaging social media posts for Padmavati Bhojanalay, a home-style Indian food and catering service.\n\nFocus on hygienic preparation, homely taste, consistent quality, and affordable pricing.",
+  "theme": "good food good mood",
   "content_type": "Promotional",
-  "template_used": "single_image",
-  "template_name": "Single Image Brief",
+  "template_used": "listicle",
+  "template_name": "Numbered List",
   "subtopics": [
     {
-      "title": "Taste Home, Feel at Home!",
-      "body": "Enjoy hygienic, authentic Indian meals made with love, at prices that won't break the bank."
+      "title": "Savor the Flavor: Happiness on a Plate",
+      "body": "Experience joy in every bite! Our dishes are crafted to elevate your mood and satisfy your cravings."
     }
   ],
   "slide_contents": {
     "slide_1": {
-      "title": "Taste Home, Feel at Home!",
+      "title": "Savor the Flavor: Happiness on a Plate",
       "body": [
-        "Enjoy hygienic, authentic Indian meals made with love, at prices that won't break the bank."
+        "Experience joy in every bite! Our dishes are crafted to elevate your mood and satisfy your cravings."
       ],
       "structure_type": "text_overlay",
-      "visual_hint": "clean_typography, readable_text, professional_layout"
+      "visual_hint": "clean_typography, scannable_text, professional_layout"
     }
   },
   "captions": {
-    "post_caption": "Craving a taste of home? 🍽️✨ At Padmavati Bhojanalay, we serve delicious, hygienically prepared Indian dishes that remind you of mom's cooking. Consistent quality and affordability are our promise! Experience the warmth of home-style flavors without the fuss. Ready to indulge? Order now and bring the taste of India to your table! 🇮🇳👌 #HomeStyleCooking #IndianCuisine #PadmavatiBhojanalay"
+    "post_caption": "Good food equals a good mood, and at Padmavati Bhojanaly Catering, we serve happiness on a plate! 🍽️✨ Dive into flavors that not only tantalize your taste buds but also uplift your spirit. Our passion for authentic cuisine shines through every dish, making each bite a celebration of joy and comfort. \n\nSwipe through our latest carousel to see how our culinary delights can transform your day. Whether you're planning a gathering or simply treating yourself, our menu is designed to bring smiles and good vibes. Let's make every meal an occasion worth savoring! \n\nJoin the Padmavati family, where we're not just serving food; we're crafting experiences that matter. Ready to indulge? \n\n🌐 Learn more: www.padmavatibhojanalay.com  \n#PadmavatiBhojanalyCatering #Restaurant #SpecialOffer #LimitedTime #Good #Food #Mood #NewLaunch #CheckItOut #Trending"
   },
   "summary": [
-    "1. Taste Home, Feel at Home!: Enjoy hygienic, authentic Indian meals made with love, at prices that won't break the bank."
+    "1. Savor the Flavor: Happiness on a Plate"
   ],
   "business_context": {
     "business_type": "restaurant",
@@ -96,13 +96,16 @@
   },
   "meme_mode": false,
   "generation_metadata": {
-    "timestamp": "2026-02-01T20:44:06.685089",
+    "timestamp": "2026-02-05T22:22:54.149536",
     "platforms": [
       "linkedin"
     ],
-    "intent": "image",
+    "intent": "carousel",
     "business_type": "restaurant",
     "company_name": "Padmavati Bhojanaly Catering",
+    "has_logo": true,
+    "has_colors": true,
+    "has_target_audience": false,
     "personalization_level": "high",
     "ai_provider": "openai"
   }
